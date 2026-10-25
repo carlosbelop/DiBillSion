@@ -1,0 +1,14 @@
+# Always LF in the repo and working tree (WSL, native Linux, CI, macOS)
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.ttf  binary
+*.so   binary
+*.a    binary

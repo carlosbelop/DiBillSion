@@ -1,0 +1,43 @@
+[workspace]
+resolver = "3"
+members = [
+  "crates/dibill-domain",
+  "crates/dibill-core",
+  "crates/dibill-server",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "LicenseRef-Proprietary"
+publish = false
+
+[workspace.dependencies]
+dibill-domain = { path = "crates/dibill-domain" }
+thiserror = "2"
+uuid = { version = "1", features = ["v7"] }
+proptest = "1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+float_arithmetic = "deny"        # money is integer minor units, never floats
+unwrap_used = "warn"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# Smaller native libs for the mobile apps: `cargo build --profile mobile`
+[profile.mobile]
+inherits = "release"
+opt-level = "s"
