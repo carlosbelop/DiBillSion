@@ -43,7 +43,7 @@ Mark items `[x]` when merged and link the PR.
 
 ### M3: Local-only Android app
 - [x] `dibill-store`: SQLite (rusqlite bundled + migrations), WAL, repository API. ([#29](https://github.com/carlosbelop/DiBillSion/pull/29), ADR 0003)
-- [ ] `dibill-core`: UniFFI facade (coarse-grained, async), Kotlin bindings generation.
+- [ ] `dibill-core`: UniFFI facade (coarse-grained, async), Kotlin bindings generation. [PR #31](https://github.com/carlosbelop/DiBillSion/pull/31) is green and **waiting for the owner to approve MPL-2.0** (UniFFI's license). The facade is synchronous for now; the apps call it off the UI thread.
 - [ ] Android SDK + NDK r27+ in WSL via command-line tools. ⚠️ Accepting the Android SDK licenses (`sdkmanager --licenses`) is accepting terms: ask the owner.
 - [ ] Compose shell: groups, members, expenses, balances, settle-up. Offline only.
 - [ ] CI job: `cargo ndk` build + Gradle assemble.
@@ -58,4 +58,6 @@ M4 iOS (needs macOS) · M5 backend + sync + invites · M6 polish · M7 receipt s
 
 ## Needs the owner (open requests)
 - **Phone for black-box observation (M1 §2.4):** `adb devices` hangs; wireless debugging needs re-pairing (physical). Questions to check are in `_study/notes/03-behavior.md` (end).
+- **License: allow MPL-2.0 for UniFFI?** `deny.toml` is permissive-only; UniFFI (the planned binding layer, ADR 0001) is MPL-2.0 (file-level copyleft, fine for linking unmodified into a closed app). Approve to merge [PR #31](https://github.com/carlosbelop/DiBillSion/pull/31), or pick another binding approach.
+- **Accept Android SDK licenses** (`sdkmanager --licenses`) before the M3 SDK/NDK install, Compose shell and `cargo ndk` CI job.
 - **Approve `docs/SPEC.md` draft v1** (M1 exit criterion). Product calls made in it: CSV/PDF export added, members with history are deactivated rather than deleted, banking/photo-album/import features out of scope.
