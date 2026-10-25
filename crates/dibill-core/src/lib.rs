@@ -39,12 +39,13 @@ pub fn currency_exponent(code: String) -> Result<u8, CoreError> {
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum CoreError {
-    #[error("invalid input: {message}")]
-    InvalidInput { message: String },
+    // Not `message`: that would clash with `Exception.message` in Kotlin/Swift.
+    #[error("invalid input: {reason}")]
+    InvalidInput { reason: String },
     #[error("not found")]
     NotFound,
-    #[error("storage error: {message}")]
-    Storage { message: String },
+    #[error("storage error: {reason}")]
+    Storage { reason: String },
 }
 
 impl From<StoreError> for CoreError {
@@ -52,10 +53,10 @@ impl From<StoreError> for CoreError {
         match e {
             StoreError::NotFound => Self::NotFound,
             StoreError::Sqlite(_) | StoreError::Corrupt(_) => Self::Storage {
-                message: e.to_string(),
+                reason: e.to_string(),
             },
             _ => Self::InvalidInput {
-                message: e.to_string(),
+                reason: e.to_string(),
             },
         }
     }
@@ -380,9 +381,9 @@ impl From<GroupKind> for GroupKindDto {
     }
 }
 
-fn invalid(message: impl Into<String>) -> CoreError {
+fn invalid(reason: impl Into<String>) -> CoreError {
     CoreError::InvalidInput {
-        message: message.into(),
+        reason: reason.into(),
     }
 }
 

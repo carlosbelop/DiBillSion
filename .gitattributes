@@ -12,3 +12,4 @@
 *.ttf  binary
 *.so   binary
 *.a    binary
+*.jar  binary
