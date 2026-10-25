@@ -7,7 +7,7 @@ Last updated: 2026-10-25 (session 2)
 
 ## Where we are
 
-**M0 (tooling): done. M1 (study): done; SPEC draft v2 waits for the owner's approval. M2 (domain): done.** **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; first on-device run done (Pixel 9a).
+**M0 (tooling): done. M1 (study): done, SPEC v2 approved. M2 (domain): done.** **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; first on-device run done (Pixel 9a).
 
 ### Done
 - WSL2 Ubuntu 24.04 environment (`scripts/setup-ubuntu.sh`): Rust stable + Android targets, cargo-nextest/deny/llvm-cov/ndk/bloat, Node 24 (nvm), OpenJDK 21, jadx-headless-mcp 0.7.1, Apktool 3.0.3, adb, gh.
@@ -27,7 +27,7 @@ Mark items `[x]` when merged and link the PR.
 - [x] **Resources and strings** (PLAN §2.2): `decode_android_resources` (en, es) → feature inventory in our own words → `_study/notes/02-features.md`.
 - [x] **Behavior** (PLAN §2.3): answer the 7 questions (data model, split modes, rounding, multi-currency, settle-up, offline/sync and invites, export) → `_study/notes/03-behavior.md`.
 - [x] **Black-box observation** (PLAN §2.4) on the phone. ⚠️ Use only a throwaway test group. Never touch the owner's real groups. If something can't be done through adb, ask the owner.
-- [x] **Write `docs/SPEC.md`** (own words; the only study output allowed in the repo). Draft v1 merged; open points marked **(open)**. Needs the owner's approval (M1 exit criterion).
+- [x] **Write `docs/SPEC.md`** (own words; the only study output allowed in the repo). v2 approved by the owner on 2026-10-25 (M1 exit criterion met).
 - [x] Fold black-box results into SPEC (draft v2): exact-cent guarantee, settle-up example, display and confirmation rules. Notes in `_study/notes/04-blackbox.md` (throwaway group created and deleted; the owner's groups were not opened).
 
 ### M2: Domain (`dibill-domain`, no study needed)
@@ -47,7 +47,7 @@ Mark items `[x]` when merged and link the PR.
 - [x] Android SDK + NDK in WSL via command-line tools (`scripts/setup-ubuntu.sh`: platform 37, build-tools 37, NDK r29). Licenses accepted with the owner's approval (2026-10-25). ([#35](https://github.com/carlosbelop/DiBillSion/pull/35))
 - [x] Compose shell: groups, members, expenses, balances, settle-up. Offline only. ([#37](https://github.com/carlosbelop/DiBillSion/pull/37)) Builds and passes JVM tests (including a smoke test through the real core); **not yet run on a device**.
 - [x] CI job: `cargo ndk` build + Gradle assemble + unit tests, debug APK uploaded as an artifact (same PR).
-- [x] Run the app on the Pixel: all core flows worked; fixes for what showed up in [#39](https://github.com/carlosbelop/DiBillSion/pull/39) (localized errors, confirmations, converted amounts). Re-check the #39 dialogs on the device next time it's unlocked.
+- [x] Run the app on the Pixel: all core flows worked; fixes for what showed up in [#39](https://github.com/carlosbelop/DiBillSion/pull/39) (localized errors, confirmations, converted amounts). #39 re-checked on the device: confirmations, Spanish errors and wording all work.
 - [ ] Finalize `applicationId` (currently placeholder `com.dibillsion.app`) and app icon before M8 (branding: owner).
 
 ### Later
@@ -55,9 +55,9 @@ M4 iOS (needs macOS) · M5 backend + sync + invites · M6 polish · M7 receipt s
 
 ## Known issues and tech debt
 - Remote Control (and mobile push) is disabled by the owner's organization policy, so escalations go in the session's final message and in this file.
-- REA env vars live in `~/.bashrc` (skipped by non-interactive shells) and in `~/.claude/settings.json`. If a non-Claude script needs them, also export them from `~/.profile` and update `scripts/setup-ubuntu.sh`.
 - WSL appends the Windows `PATH`, which includes Windows Node. Always make sure nvm's Node comes first (`source ~/.nvm/nvm.sh`).
 - `main` isn't protected by GitHub (free plan, private repo). The PR workflow is self-enforced, and `.claude/settings.json` denies direct pushes to `main`.
 
 ## Needs the owner (open requests)
-- **Approve `docs/SPEC.md` draft v2** (M1 exit criterion). Product calls made in it: CSV/PDF export added, members with history are deactivated rather than deleted, banking/photo-album/import features out of scope.
+_None right now._ M3 (remaining items) and M4 will be started by the owner.
+
