@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc ac92ca56acdf562f68f7690d9baf6bef5ad4f0b9176e6bba2cb68fd40e2e1cff # shrinks to amount = 414527836619, from = Currency { code: [71, 78, 70], exponent: 0 }, to = Currency { code: [66, 72, 68], exponent: 3 }, r = FxRate(22250.307994)
