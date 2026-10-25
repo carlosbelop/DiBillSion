@@ -1,6 +1,6 @@
 # DiBillSion — Plan: study Tricount with REA, then build a clean Rust-based expense splitter
 
-> Status: M0 in progress. WSL2 environment set up, repo scaffolded, `dibill-domain` split/balance/settle written and tested.
+> Status: M0–M2 done, M3 in progress. Live status and backlog: [STATUS.md](STATUS.md).
 > Target: Android + iOS store release, with receipt scanning (VLM) added after the MVP.
 
 ---
@@ -99,7 +99,7 @@ WSL doesn't see USB devices by default. Pick one:
 ### 1.5 Editor and GitHub
 
 - **VS Code:** install the *WSL* extension on Windows (and *rust-analyzer*, *Even Better TOML* inside WSL). Open the project with `code ~/proyectos/dibillsion` from Ubuntu.
-- **GitHub (personal account):** SSH key generated **inside WSL** (`ssh-keygen -t ed25519`), added to the personal GitHub account. Commit email = the account's `noreply` address. Repo is **private**, and `main` is protected (PR + green CI).
+- **GitHub (personal account):** SSH key generated **inside WSL** (`ssh-keygen -t ed25519`), added to the personal GitHub account. Commit email = the account's `noreply` address. Repo is **private**. GitHub does not enforce branch protection on private repos on the free plan, so the PR + green CI workflow is self-enforced (see CLAUDE.md).
 
 ---
 

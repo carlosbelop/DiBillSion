@@ -4,8 +4,8 @@
 > This is the only study output allowed in the repo: no code, strings, assets or API details
 > from third-party apps. It describes **DiBillSion**, including where we deliberately differ.
 >
-> Status: draft v2 (2026-10-25), black-box observation done. Items marked **(open)** are product
-> decisions still to make.
+> Status: **v2, approved by the owner on 2026-10-25** (closes M1). Items marked **(open)** are
+> product decisions still to make. Changes from now on go through a PR that bumps the version.
 
 ## 1. Features
 
