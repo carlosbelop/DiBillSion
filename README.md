@@ -1,0 +1,61 @@
+# DiBillSion
+
+Group expense splitting for Android and iOS, built on a shared Rust core, with receipt scanning:
+take a photo of a receipt, and each line item is added to the group expense automatically.
+
+> Status: early development (milestone M0/M1). See [docs/PLAN.md](docs/PLAN.md).
+
+## Architecture
+
+```
+Android (Jetpack Compose) ─┐                 ┌─ iOS (SwiftUI)
+                           └─ UniFFI ─ dibill-core (Rust) ─┘
+                                         │
+                                  dibill-server (Rust, axum + PostgreSQL)
+```
+
+| Path | Contents |
+|---|---|
+| `crates/dibill-domain` | Pure money logic: split (largest remainder), balances, settle-up. No I/O |
+| `crates/dibill-core` | Facade for the mobile apps (UniFFI bindings) |
+| `crates/dibill-server` | Backend (sync, invite links, receipt→VLM proxy) |
+| `android/`, `ios/` | Native UI shells |
+| `docs/` | Plan, functional spec, architecture decision records (ADRs) |
+| `scripts/` | Environment setup |
+
+Decisions are recorded in [docs/adr](docs/adr).
+
+## Getting started (Ubuntu 24.04, native or WSL2)
+
+```bash
+git clone <repo-url> && cd dibillsion
+./scripts/setup-ubuntu.sh
+source ~/.bashrc
+cargo nextest run --workspace
+```
+
+On WSL2, keep the repo inside the Linux filesystem (`~/...`), not under `/mnt/c`.
+
+## Development workflow
+
+- `main` is protected. All changes go through pull requests with green CI.
+- Branches: `feat/...`, `fix/...`, `chore/...`, `docs/...`
+- Commits follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat: add weighted split`).
+- Before pushing:
+  ```bash
+  cargo fmt --all
+  cargo clippy --workspace --all-targets -- -D warnings
+  cargo nextest run --workspace
+  cargo deny check
+  ```
+
+## Rules
+
+1. **Money is integer minor units** (`i64` cents). Floats are banned by clippy.
+2. **Clean room:** nothing from third-party apps (code, strings, icons, assets, APIs) goes into this repo.
+   Local research lives in `_study/`, which is git-ignored and checked by CI.
+3. **No secrets in git:** signing keys and API keys go in GitHub Secrets / local `.env`.
+
+## License
+
+Proprietary. All rights reserved. See [LICENSE](LICENSE).
