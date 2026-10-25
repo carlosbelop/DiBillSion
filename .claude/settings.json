@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(cargo *)",
+      "Bash(rustup *)",
+      "Bash(rustc *)",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(adb *)",
+      "Bash(apktool *)",
+      "Bash(java *)",
+      "Bash(npx -y rea-agents *)",
+      "Bash(npx rea-agents *)",
+      "Bash(./scripts/*)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(wc *)",
+      "Bash(jq *)",
+      "Bash(sha256sum *)",
+      "Bash(mkdir *)",
+      "Bash(docker compose *)",
+      "Edit(./**)",
+      "mcp__rea"
+    ],
+    "deny": [
+      "Bash(sudo *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push origin main*)",
+      "Bash(git push origin HEAD:main*)",
+      "Bash(git reset --hard origin*)",
+      "Bash(gh repo delete*)",
+      "Bash(gh repo edit --visibility*)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(~/.ssh/id_*)",
+      "Edit(~/.ssh/**)"
+    ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  }
+}
