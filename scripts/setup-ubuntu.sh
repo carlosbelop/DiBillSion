@@ -11,6 +11,12 @@ NVM_VERSION=v0.40.3
 JADX_MCP_VERSION=0.7.1
 JADX_MCP_SHA256=6e5eacf500b64292bfb73c49797c1958f6ee44646e43e868039ae7feb573ff75
 APKTOOL_VERSION=3.0.3
+# Android (M3). SDK licenses accepted by the owner on 2026-10-25.
+ANDROID_CMDLINE_TOOLS_BUILD=16111833
+ANDROID_PLATFORM=android-37.0
+ANDROID_BUILD_TOOLS=37.0.0
+ANDROID_NDK=29.0.14206865          # r29
+ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
 
 TOOLS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/dibillsion-tools"
 BIN_DIR="$HOME/.local/bin"
@@ -85,6 +91,23 @@ if [[ ! -x "$TOOLS_DIR/platform-tools/adb" ]] && command -v unzip >/dev/null 2>&
 fi
 [[ -x "$TOOLS_DIR/platform-tools/adb" ]] && ln -sf "$TOOLS_DIR/platform-tools/adb" "$BIN_DIR/adb"
 
+# --- 4b. Android SDK + NDK (M3) ----------------------------------------------
+log "Android SDK (cmdline-tools $ANDROID_CMDLINE_TOOLS_BUILD, $ANDROID_PLATFORM, NDK $ANDROID_NDK)"
+SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+if [[ ! -x "$SDKMANAGER" ]]; then
+  mkdir -p "$ANDROID_HOME/cmdline-tools"
+  curl -fL -o "$TOOLS_DIR/cmdline-tools.zip" \
+    "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_BUILD}_latest.zip"
+  rm -rf "$ANDROID_HOME/cmdline-tools/latest" "$ANDROID_HOME/cmdline-tools/cmdline-tools"
+  unzip -q "$TOOLS_DIR/cmdline-tools.zip" -d "$ANDROID_HOME/cmdline-tools"
+  mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+  rm "$TOOLS_DIR/cmdline-tools.zip"
+fi
+# Accepting the SDK licenses is the owner's decision (CLAUDE.md); approved 2026-10-25.
+yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
+"$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install \
+  "platform-tools" "platforms;$ANDROID_PLATFORM" "build-tools;$ANDROID_BUILD_TOOLS" "ndk;$ANDROID_NDK"
+
 # --- 5. Environment ---------------------------------------------------------
 log "Shell environment (~/.bashrc)"
 MARK="# >>> dibillsion >>>"
@@ -100,6 +123,17 @@ export REA_JADX_HEAP_MIB=4096
 # <<< dibillsion <<<
 EOF
 fi
+ANDROID_MARK="# >>> dibillsion android >>>"
+if ! grep -q "$ANDROID_MARK" "$HOME/.bashrc"; then
+  cat >> "$HOME/.bashrc" <<EOF
+
+$ANDROID_MARK
+export ANDROID_HOME="$ANDROID_HOME"
+export ANDROID_NDK_HOME="\$ANDROID_HOME/ndk/$ANDROID_NDK"
+export PATH="\$ANDROID_HOME/cmdline-tools/latest/bin:\$PATH"
+# <<< dibillsion android <<<
+EOF
+fi
 
 log "Versions"
 rustc --version; cargo --version; node --version
@@ -111,5 +145,5 @@ cat <<'EOF'
 
 Done. Open a new shell (or `source ~/.bashrc`).
 Next (REA):   npx rea-agents setup     # registers the MCP server for Claude Code
-Android NDK:  install via Android Studio SDK Manager when starting milestone M3.
+Android:      ANDROID_HOME and ANDROID_NDK_HOME are set in ~/.bashrc.
 EOF

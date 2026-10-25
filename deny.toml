@@ -23,7 +23,7 @@ allow = [
   "Zlib",
   "CC0-1.0",
   # UniFFI (Mozilla) only. Weak, file-level copyleft: fine to link unmodified into a proprietary
-  # app; changes to UniFFI's own files would have to be published. Pending owner approval (#30).
+  # app; changes to UniFFI's own files would have to be published. Approved by the owner on 2026-10-25.
   "MPL-2.0",
 ]
 confidence-threshold = 0.9
