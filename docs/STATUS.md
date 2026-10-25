@@ -30,7 +30,7 @@ Mark items `[x]` when merged and link the PR.
 ### M2: Domain (`dibill-domain`, no study needed)
 - [x] Currency type (ISO 4217 code + minor-unit exponent) and FX conversion with `rust_decimal`, with explicit rounding rules and tests. ([#11](https://github.com/carlosbelop/DiBillSion/pull/11), ADR 0002)
 - [x] Line-item model: `ExpenseItem` + `ItemShare`. A manual expense is one item; receipts are many. Balances computed per item. ([#13](https://github.com/carlosbelop/DiBillSion/pull/13))
-- [ ] Transfers (reimbursements) included in balances.
+- [x] Transfers (reimbursements) included in balances. ([#15](https://github.com/carlosbelop/DiBillSion/pull/15))
 - [ ] `criterion` benchmarks for split, balances and settle-up (1k members, 100k expenses).
 - [ ] Refine `docs/SPEC.md` calculation rules with worked examples from the tests.
 

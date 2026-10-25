@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::{MemberId, Minor};
 
+/// Money sent from one member to another: a suggested or recorded reimbursement.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Transfer {
     pub from: MemberId,
