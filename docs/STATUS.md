@@ -42,7 +42,7 @@ Mark items `[x]` when merged and link the PR.
 - [x] Member status (active/inactive): inactive members excluded from new splits, kept in balances. ([#27](https://github.com/carlosbelop/DiBillSion/pull/27))
 
 ### M3: Local-only Android app
-- [x] `dibill-store`: SQLite (rusqlite bundled + migrations), WAL, repository API. (PR_STORE, ADR 0003)
+- [x] `dibill-store`: SQLite (rusqlite bundled + migrations), WAL, repository API. ([#29](https://github.com/carlosbelop/DiBillSion/pull/29), ADR 0003)
 - [ ] `dibill-core`: UniFFI facade (coarse-grained, async), Kotlin bindings generation.
 - [ ] Android SDK + NDK r27+ in WSL via command-line tools. ⚠️ Accepting the Android SDK licenses (`sdkmanager --licenses`) is accepting terms: ask the owner.
 - [ ] Compose shell: groups, members, expenses, balances, settle-up. Offline only.
