@@ -5,11 +5,15 @@
 
 mod balance;
 mod currency;
+mod member;
 mod settle;
 mod split;
 
 pub use balance::{Expense, ExpenseItem, ExpenseKind, balances};
 pub use currency::{Currency, CurrencyError, FxError, FxRate, convert, convert_items};
+pub use member::{
+    MemberError, MemberStatus, can_delete, check_expense_members, check_transfer_members,
+};
 pub use rust_decimal::Decimal;
 pub use settle::{Transfer, settle_up};
 pub use split::{ItemShare, Portion, SplitError, allocate, split_item, split_weighted};
