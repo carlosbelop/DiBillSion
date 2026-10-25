@@ -10,6 +10,8 @@ pub enum SplitError {
     DuplicateMember,
     #[error("an expense needs at least one item")]
     NoItems,
+    #[error("a transfer needs a positive amount and two different members")]
+    InvalidTransfer,
 }
 
 /// Splits `total` among members proportionally to their weights using the

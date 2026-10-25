@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{MemberId, Minor, SplitError, split_weighted};
+use crate::{MemberId, Minor, SplitError, Transfer, split_weighted};
 
 /// Who shares one item, and in what proportion. Equal split = all weights 1;
 /// an exact amount per member = weights in minor units that sum to the total.
@@ -48,10 +48,18 @@ impl Expense {
 /// Net balance per member: positive = is owed money, negative = owes money.
 /// The sum of all balances is always zero.
 ///
+/// `transfers` are reimbursements already made: the sender's balance goes up
+/// and the receiver's goes down, so applying every transfer suggested by
+/// [`settle_up`](crate::settle_up) brings all balances to zero.
+///
 /// # Errors
 /// Propagates [`SplitError`] from invalid items; [`SplitError::NoItems`] for
-/// an expense without items.
-pub fn balances(expenses: &[Expense]) -> Result<BTreeMap<MemberId, Minor>, SplitError> {
+/// an expense without items; [`SplitError::InvalidTransfer`] for a transfer
+/// with a non-positive amount or the same sender and receiver.
+pub fn balances(
+    expenses: &[Expense],
+    transfers: &[Transfer],
+) -> Result<BTreeMap<MemberId, Minor>, SplitError> {
     let mut net: BTreeMap<MemberId, Minor> = BTreeMap::new();
     let mut weights = Vec::new();
     for e in expenses {
@@ -67,12 +75,20 @@ pub fn balances(expenses: &[Expense]) -> Result<BTreeMap<MemberId, Minor>, Split
             }
         }
     }
+    for t in transfers {
+        if t.amount <= 0 || t.from == t.to {
+            return Err(SplitError::InvalidTransfer);
+        }
+        *net.entry(t.from).or_default() += t.amount;
+        *net.entry(t.to).or_default() -= t.amount;
+    }
     Ok(net)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::settle_up;
     use proptest::prelude::*;
     use uuid::Uuid;
 
@@ -92,10 +108,13 @@ mod tests {
 
     #[test]
     fn simple_dinner() {
-        let b = balances(&[
-            Expense::single(m(1), 3000, equal(&[1, 2, 3])),
-            Expense::single(m(2), 600, equal(&[1, 2, 3])),
-        ])
+        let b = balances(
+            &[
+                Expense::single(m(1), 3000, equal(&[1, 2, 3])),
+                Expense::single(m(2), 600, equal(&[1, 2, 3])),
+            ],
+            &[],
+        )
         .unwrap();
         assert_eq!(b[&m(1)], 1800);
         assert_eq!(b[&m(2)], -600);
@@ -125,7 +144,7 @@ mod tests {
             ],
         };
         assert_eq!(receipt.total(), Some(3150));
-        let b = balances(&[receipt]).unwrap();
+        let b = balances(&[receipt], &[]).unwrap();
         // Drinks: 11.00 / 3 = 3.67, 3.67, 3.66 (leftover cents go to the lowest ids).
         assert_eq!(b[&m(1)], 3150 - 600 - 367);
         assert_eq!(b[&m(2)], -600 - 367);
@@ -139,7 +158,45 @@ mod tests {
             payer: m(1),
             items: vec![],
         };
-        assert_eq!(balances(&[e]), Err(SplitError::NoItems));
+        assert_eq!(balances(&[e], &[]), Err(SplitError::NoItems));
+    }
+
+    #[test]
+    fn transfers_move_balances() {
+        let dinner = [Expense::single(m(1), 3000, equal(&[1, 2, 3]))];
+        // B pays A back 10.00 of the 10.00 they owe.
+        let paid_back = [Transfer {
+            from: m(2),
+            to: m(1),
+            amount: 1000,
+        }];
+        let b = balances(&dinner, &paid_back).unwrap();
+        assert_eq!(b[&m(1)], 1000);
+        assert_eq!(b[&m(2)], 0);
+        assert_eq!(b[&m(3)], -1000);
+    }
+
+    #[test]
+    fn invalid_transfers_are_rejected() {
+        for t in [
+            Transfer {
+                from: m(1),
+                to: m(2),
+                amount: 0,
+            },
+            Transfer {
+                from: m(1),
+                to: m(2),
+                amount: -5,
+            },
+            Transfer {
+                from: m(1),
+                to: m(1),
+                amount: 5,
+            },
+        ] {
+            assert_eq!(balances(&[], &[t]), Err(SplitError::InvalidTransfer));
+        }
     }
 
     fn arb_item() -> impl Strategy<Value = ExpenseItem> {
@@ -171,16 +228,31 @@ mod tests {
 
     proptest! {
         #[test]
-        fn balances_sum_to_zero(es in proptest::collection::vec(arb_expense(), 0..20)) {
-            let b = balances(&es).unwrap();
+        fn balances_sum_to_zero(
+            es in proptest::collection::vec(arb_expense(), 0..20),
+            ts in proptest::collection::vec((0u128..8, 0u128..8, 1i64..1_000_000), 0..10),
+        ) {
+            let ts: Vec<_> = ts
+                .into_iter()
+                .filter(|(f, t, _)| f != t)
+                .map(|(f, t, amount)| Transfer { from: m(f), to: m(t), amount })
+                .collect();
+            let b = balances(&es, &ts).unwrap();
             prop_assert_eq!(b.values().sum::<i64>(), 0);
+        }
+
+        #[test]
+        fn settling_up_zeroes_every_balance(es in proptest::collection::vec(arb_expense(), 0..20)) {
+            let before = balances(&es, &[]).unwrap();
+            let after = balances(&es, &settle_up(&before)).unwrap();
+            prop_assert!(after.values().all(|v| *v == 0));
         }
 
         #[test]
         fn single_item_matches_whole_expense_split(e in arb_expense()) {
             let item = &e.items[0];
             let one = Expense { payer: e.payer, items: vec![item.clone()] };
-            let b = balances(&[one]).unwrap();
+            let b = balances(&[one], &[]).unwrap();
             let weights: Vec<_> = item.shares.iter().map(|s| (s.member, s.weight)).collect();
             for (member, owed) in split_weighted(item.total, &weights).unwrap() {
                 let paid = if member == e.payer { item.total } else { 0 };
