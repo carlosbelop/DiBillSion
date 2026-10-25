@@ -111,8 +111,8 @@ Working folder: `_study/` (git-ignored). All of it is notes for the spec, not so
 In Ubuntu (WSL), with the phone connected as in 1.3:
 ```bash
 adb devices
-adb shell pm list packages | grep -i tricount        # expected: com.tribab.tricount (confirm)
-adb shell pm path com.tribab.tricount                # may list base.apk + split_config.*.apk
+adb shell pm list packages | grep -i tricount        # confirmed: com.tribab.tricount.android (v14.5.0, single APK)
+adb shell pm path com.tribab.tricount.android                # may list base.apk + split_config.*.apk
 adb pull <path-to-base.apk> _study/apk/tricount-base.apk
 ```
 REA doesn't handle split APKs or AABs, so analyze `base.apk`. Pull the `split_config.<lang>.apk` / density splits only if resources seem missing.
