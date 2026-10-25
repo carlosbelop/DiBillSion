@@ -21,7 +21,16 @@ The full plan is in `docs/PLAN.md`, decisions in `docs/adr/`, the functional spe
 
 ## Workflow
 
-- `main` is protected. Work on a branch (`feat/…`, `fix/…`, `chore/…`, `docs/…`), then open a PR.
+- `main` is protected. Never commit to it directly. Every change follows **issue → linked branch → PR**:
+  1. Create (or reuse) an issue, **assigned to `carlosbelop`**:
+     `gh issue create --assignee carlosbelop --title "…" --body "…"`
+  2. Create the branch from the issue, so it's linked under the issue's *Development* section:
+     `gh issue develop <n> --name <type>/<n>-<slug> --base main --checkout` (type: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`)
+  3. Open the PR, **assigned to `carlosbelop`**, with `Closes #<n>` in the body:
+     `gh pr create --assignee carlosbelop --base main`
+  4. Squash-merge. The issue closes automatically and the remote branch is deleted (repo setting). Then locally:
+     `git switch main && git pull --ff-only && git branch -D <branch> && git remote prune origin`
+- Always assign `carlosbelop` to issues and PRs.
 - Conventional Commits (`feat: …`, `fix: …`). Commits are SSH-signed with the repo-local identity.
 - Before committing, everything must pass:
   ```bash
