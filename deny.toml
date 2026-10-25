@@ -4,6 +4,11 @@ all-features = true
 
 [advisories]
 yanked = "deny"
+ignore = [
+  # Unmaintained (not vulnerable) TOML parser pulled in only by uniffi_bindgen's template engine,
+  # i.e. the build-time `bindgen` feature; never linked into the apps. Revisit when UniFFI updates.
+  { id = "RUSTSEC-2026-0374", reason = "build-time only via uniffi_bindgen; unmaintained, no vulnerability" },
+]
 
 [licenses]
 # Permissive licenses only (the app is proprietary / sold in stores).
@@ -17,6 +22,9 @@ allow = [
   "Unicode-3.0",
   "Zlib",
   "CC0-1.0",
+  # UniFFI (Mozilla) only. Weak, file-level copyleft: fine to link unmodified into a proprietary
+  # app; changes to UniFFI's own files would have to be published. Pending owner approval (#30).
+  "MPL-2.0",
 ]
 confidence-threshold = 0.9
 # The allow-list anticipates future dependencies; don't warn while unused.

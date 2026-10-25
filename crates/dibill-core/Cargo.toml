@@ -1,6 +1,6 @@
 [package]
 name = "dibill-core"
-description = "Facade exposed to the Android/iOS apps (UniFFI bindings will be added here)."
+description = "Facade exposed to the Android/iOS apps through UniFFI."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,8 +10,23 @@ publish.workspace = true
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
 
+[[bin]]
+name = "uniffi-bindgen"
+required-features = ["bindgen"]
+
+[features]
+# Builds the `uniffi-bindgen` CLI used by scripts/gen-bindings.sh. Not shipped in the apps.
+bindgen = ["uniffi/cli"]
+
 [dependencies]
 dibill-domain.workspace = true
+dibill-store.workspace = true
+thiserror.workspace = true
+uniffi.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true
