@@ -8,11 +8,11 @@ mod currency;
 mod settle;
 mod split;
 
-pub use balance::{Expense, ExpenseItem, ExpenseKind, ItemShare, balances};
+pub use balance::{Expense, ExpenseItem, ExpenseKind, balances};
 pub use currency::{Currency, CurrencyError, FxError, FxRate, convert, convert_items};
 pub use rust_decimal::Decimal;
 pub use settle::{Transfer, settle_up};
-pub use split::{SplitError, allocate, split_weighted};
+pub use split::{ItemShare, Portion, SplitError, allocate, split_item, split_weighted};
 
 use uuid::Uuid;
 
