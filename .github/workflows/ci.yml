@@ -37,6 +37,16 @@ jobs:
           name: coverage
           path: lcov.info
 
+  bindings:
+    name: Kotlin bindings (UniFFI)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: scripts/gen-bindings.sh
+      - run: test -s target/bindings/kotlin/uniffi/dibill_core/dibill_core.kt
+
   deny:
     name: Dependencies (licenses, advisories)
     runs-on: ubuntu-24.04

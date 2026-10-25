@@ -22,6 +22,7 @@ uuid = { version = "1", features = ["v7"] }
 proptest = "1"
 rusqlite = { version = "0.41", default-features = false, features = ["bundled", "cache", "uuid"] }
 tempfile = "3"
+uniffi = "0.32"
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 rust_decimal = { version = "1.43", default-features = false, features = ["std"] }
 
