@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use rust_decimal::{Decimal, RoundingStrategy};
 
-use crate::Minor;
+use crate::{Minor, allocate};
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum CurrencyError {
@@ -19,6 +19,8 @@ pub enum FxError {
     InvalidRate,
     #[error("converted amount does not fit in minor units")]
     Overflow,
+    #[error("item amounts must not be negative")]
+    NegativeItem,
 }
 
 /// An ISO 4217 currency: three-letter code plus the number of decimal digits
@@ -135,6 +137,32 @@ pub fn convert(
     Minor::try_from(rounded).map_err(|_| FxError::Overflow)
 }
 
+/// Converts the items of one expense: the total is converted **once** with
+/// [`convert`], then allocated across the items in proportion to their
+/// original amounts. The converted items always sum to the converted total,
+/// so a receipt shows the same converted total as a single-item expense would.
+///
+/// # Errors
+/// [`FxError::NegativeItem`] for a negative item; [`FxError::Overflow`] if the
+/// total or its conversion does not fit in [`Minor`].
+pub fn convert_items(
+    items: &[Minor],
+    from: Currency,
+    to: Currency,
+    rate: FxRate,
+) -> Result<Vec<Minor>, FxError> {
+    if items.iter().any(|i| *i < 0) {
+        return Err(FxError::NegativeItem);
+    }
+    let total = items
+        .iter()
+        .try_fold(0, |acc: Minor, i| acc.checked_add(*i))
+        .ok_or(FxError::Overflow)?;
+    let converted = convert(total, from, to, rate)?;
+    // Non-negative inputs and a positive rate give a non-negative total.
+    allocate(converted, items).map_err(|_| FxError::NegativeItem)
+}
+
 /// Active ISO 4217 codes with a minor unit, sorted by code.
 #[rustfmt::skip]
 const ISO_4217: &[(&str, u8)] = &[
@@ -239,6 +267,19 @@ mod tests {
     }
 
     #[test]
+    fn receipt_converts_once() {
+        // 31.50 USD receipt at 0.9215: 29.02725 -> 29.03 EUR, spread over items.
+        let items =
+            convert_items(&[1200, 850, 1100], cur("USD"), cur("EUR"), rate("0.9215")).unwrap();
+        assert_eq!(items, vec![1106, 783, 1014]);
+        assert_eq!(items.iter().sum::<Minor>(), 2903);
+        assert_eq!(
+            convert_items(&[100, -1], cur("USD"), cur("EUR"), rate("1")),
+            Err(FxError::NegativeItem)
+        );
+    }
+
+    #[test]
     fn overflow_is_an_error() {
         assert_eq!(
             convert(Minor::MAX, cur("EUR"), cur("EUR"), rate("2")),
@@ -284,6 +325,16 @@ mod tests {
                 exact / Decimal::from(10_i64.pow(shift.unsigned_abs()))
             };
             prop_assert!((Decimal::from(got) - exact).abs() <= Decimal::new(5, 1));
+        }
+
+        #[test]
+        fn items_sum_to_converted_total(
+            items in proptest::collection::vec(0i64..10_000_000, 1..20),
+            from in any_currency(), to in any_currency(), r in any_rate(),
+        ) {
+            let total: Minor = items.iter().sum();
+            let converted = convert_items(&items, from, to, r).unwrap();
+            prop_assert_eq!(converted.iter().sum::<Minor>(), convert(total, from, to, r).unwrap());
         }
 
         #[test]

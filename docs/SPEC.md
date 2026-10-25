@@ -20,6 +20,10 @@ _TBD (starting point: docs/PLAN.md §3.4)_
   rate stored on the expense, then rounded to the nearest minor unit, halves away from zero (ADR 0002).
   10.00 USD at 0.9215 → 9.215 € → 9.22 €. A refund of −10.00 USD converts to exactly −9.22 €.
   1,234 JPY at 0.0061 → 7.5274 € → 7.53 €.
+- Multi-item expenses in a foreign currency: the receipt total is converted once, then spread over the
+  items in proportion to their original amounts (largest remainder, ties to the earlier item), so the
+  converted items always add up to the converted total.
+  Receipt 12.00 + 8.50 + 11.00 = 31.50 USD at 0.9215 → 29.03 € → items 11.06 + 7.83 + 10.14 €.
 - _TBD: refunds/negative expenses in splits_
 
 ## 5. Edge cases
