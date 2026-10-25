@@ -26,7 +26,7 @@
     <string name="mark_paid">Mark as paid</string>
     <string name="add_person">Add person</string>
     <string name="person_name">Name</string>
-    <string name="inactive">inactive</string>
+    <string name="inactive">Not in new expenses</string>
     <string name="deactivate">Deactivate</string>
     <string name="activate">Activate</string>
     <string name="title">What was it?</string>
@@ -38,4 +38,16 @@
     <string name="error_amount">Enter a valid positive amount.</string>
     <string name="error_rate">Enter the exchange rate.</string>
     <string name="error_nobody">Pick at least one person.</string>
+    <string name="confirm_delete_expense">Delete “%1$s”?</string>
+    <string name="confirm_delete_person">Remove %1$s from the group?</string>
+    <string name="confirm_paid">Record that %1$s paid %2$s to %3$s?</string>
+    <string name="err_not_found">That item no longer exists.</string>
+    <string name="err_unknown_currency">“%1$s” isn’t a currency we know. Use a three-letter code such as EUR.</string>
+    <string name="err_invalid_rate">The exchange rate must be a number greater than zero.</string>
+    <string name="err_unknown_member">That person isn’t in this group.</string>
+    <string name="err_member_inactive">Someone in this expense no longer takes part in new expenses.</string>
+    <string name="err_member_has_history">This person already appears in expenses, so they can’t be removed. Deactivate them instead.</string>
+    <string name="err_invalid_split">The split doesn’t add up. Check the amounts and who is included.</string>
+    <string name="err_invalid_input">Something in the form isn’t valid.</string>
+    <string name="err_storage">Couldn’t save to this device. Try again.</string>
 </resources>

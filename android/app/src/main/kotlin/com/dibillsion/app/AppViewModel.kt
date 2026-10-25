@@ -1,6 +1,7 @@
 package com.dibillsion.app
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibillsion.core.BalancesDto
@@ -108,6 +109,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 fxRate = fxRate,
                 dateDays = today(),
                 items = listOf(ItemDto(null, amountMinor, among.map { ShareDto(it, 1u, null) })),
+                baseTotalMinor = null,
             ),
         )
     }
@@ -125,6 +127,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 fxRate = null,
                 dateDays = today(),
                 items = listOf(ItemDto(null, amountMinor, listOf(ShareDto(toId, null, amountMinor)))),
+                baseTotalMinor = null,
             ),
         )
     }
@@ -157,15 +160,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     block()
                     null
                 } catch (e: CoreException) {
-                    when (e) {
-                        is CoreException.InvalidInput -> e.reason
-                        is CoreException.Storage -> e.reason
-                        is CoreException.NotFound -> "Not found"
-                    }
+                    describe(e)
                 }
             }
             if (error != null) _state.update { it.copy(error = error) }
         }
+    }
+
+    /** A message for the user in their language; English detail goes to the log only. */
+    private fun describe(e: CoreException): String {
+        val app = getApplication<Application>()
+        val res = when (e) {
+            is CoreException.NotFound -> R.string.err_not_found
+            is CoreException.UnknownCurrency -> return app.getString(R.string.err_unknown_currency, e.code)
+            is CoreException.MissingRate -> R.string.error_rate
+            is CoreException.InvalidRate -> R.string.err_invalid_rate
+            is CoreException.UnknownMember -> R.string.err_unknown_member
+            is CoreException.MemberInactive -> R.string.err_member_inactive
+            is CoreException.MemberHasHistory -> R.string.err_member_has_history
+            is CoreException.InvalidSplit -> R.string.err_invalid_split
+            is CoreException.InvalidInput -> R.string.err_invalid_input
+            is CoreException.Storage -> R.string.err_storage
+        }
+        Log.w("DiBillSion", "core error", e)
+        return app.getString(res)
     }
 
     override fun onCleared() {

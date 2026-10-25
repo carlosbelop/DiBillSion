@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -35,6 +36,8 @@ import com.dibillsion.app.AppViewModel
 import com.dibillsion.app.GroupDetail
 import com.dibillsion.app.Money
 import com.dibillsion.app.R
+import com.dibillsion.core.MemberDto
+import com.dibillsion.core.SuggestionDto
 import com.dibillsion.core.TransactionDto
 import com.dibillsion.core.TransactionKindDto
 
@@ -79,6 +82,15 @@ fun GroupScreen(d: GroupDetail, error: String?, vm: AppViewModel) {
 
 @Composable
 private fun Transactions(d: GroupDetail, vm: AppViewModel) {
+    var deleting by remember { mutableStateOf<TransactionDto?>(null) }
+    deleting?.let { t ->
+        ConfirmDialog(
+            text = stringResource(R.string.confirm_delete_expense, headline(d, t)),
+            confirm = stringResource(R.string.delete),
+            onConfirm = { t.id?.let(vm::deleteTransaction) },
+            onDismiss = { deleting = null },
+        )
+    }
     if (d.transactions.isEmpty()) {
         Text(stringResource(R.string.expenses_empty), Modifier.padding(24.dp))
         return
@@ -90,9 +102,18 @@ private fun Transactions(d: GroupDetail, vm: AppViewModel) {
                 supportingContent = { Text(subtitle(d, t)) },
                 trailingContent = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        val exp = vm.exponentOf(t.currency) ?: 2
-                        Text(Money.format(t.items.sumOf { it.totalMinor }, exp, t.currency))
-                        TextButton(onClick = { t.id?.let(vm::deleteTransaction) }) { Text(stringResource(R.string.delete)) }
+                        Column(horizontalAlignment = Alignment.End) {
+                            val exp = vm.exponentOf(t.currency) ?: 2
+                            Text(Money.format(t.items.sumOf { it.totalMinor }, exp, t.currency))
+                            t.baseTotalMinor?.let {
+                                Text(
+                                    Money.format(it, d.exponent, d.group.baseCurrency),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        TextButton(onClick = { deleting = t }) { Text(stringResource(R.string.delete)) }
                     }
                 },
             )
@@ -118,6 +139,17 @@ private fun subtitle(d: GroupDetail, t: TransactionDto): String = when (t.kind) 
 @Composable
 private fun Balances(d: GroupDetail, vm: AppViewModel) {
     val b = d.balances
+    var paying by remember { mutableStateOf<SuggestionDto?>(null) }
+    paying?.let { s ->
+        ConfirmDialog(
+            text = stringResource(
+                R.string.confirm_paid, s.fromName, Money.format(s.amountMinor, d.exponent, b.currency), s.toName,
+            ),
+            confirm = stringResource(R.string.mark_paid),
+            onConfirm = { vm.markPaid(s.fromId, s.toId, s.amountMinor) },
+            onDismiss = { paying = null },
+        )
+    }
     LazyColumn {
         items(b.balances, key = { it.memberId }) { m ->
             ListItem(
@@ -143,7 +175,7 @@ private fun Balances(d: GroupDetail, vm: AppViewModel) {
                 headlineContent = { Text(stringResource(R.string.pays, s.fromName, s.toName)) },
                 supportingContent = { Text(Money.format(s.amountMinor, d.exponent, b.currency)) },
                 trailingContent = {
-                    Button(onClick = { vm.markPaid(s.fromId, s.toId, s.amountMinor) }) { Text(stringResource(R.string.mark_paid)) }
+                    Button(onClick = { paying = s }) { Text(stringResource(R.string.mark_paid)) }
                 },
             )
         }
@@ -153,6 +185,15 @@ private fun Balances(d: GroupDetail, vm: AppViewModel) {
 @Composable
 private fun People(d: GroupDetail, vm: AppViewModel) {
     var name by rememberSaveable { mutableStateOf("") }
+    var deleting by remember { mutableStateOf<MemberDto?>(null) }
+    deleting?.let { m ->
+        ConfirmDialog(
+            text = stringResource(R.string.confirm_delete_person, m.displayName),
+            confirm = stringResource(R.string.delete),
+            onConfirm = { vm.deleteMember(m.id) },
+            onDismiss = { deleting = null },
+        )
+    }
     Column(Modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().padding(16.dp),
@@ -175,7 +216,7 @@ private fun People(d: GroupDetail, vm: AppViewModel) {
                             TextButton(onClick = { vm.setMemberActive(m.id, !m.active) }) {
                                 Text(stringResource(if (m.active) R.string.deactivate else R.string.activate))
                             }
-                            TextButton(onClick = { vm.deleteMember(m.id) }) { Text(stringResource(R.string.delete)) }
+                            TextButton(onClick = { deleting = m }) { Text(stringResource(R.string.delete)) }
                         }
                     },
                 )

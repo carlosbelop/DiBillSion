@@ -100,5 +100,20 @@ fun ErrorDialog(error: String?, onDismiss: () -> Unit) {
     )
 }
 
+@Composable
+fun ConfirmDialog(text: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = { Text(text) },
+        confirmButton = {
+            TextButton(onClick = {
+                onConfirm()
+                onDismiss()
+            }) { Text(confirm) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
 private fun defaultCurrency(): String =
     runCatching { Currency.getInstance(Locale.getDefault()).currencyCode }.getOrDefault("EUR")
