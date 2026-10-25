@@ -42,12 +42,54 @@ pub fn split_weighted(
         return Err(SplitError::NoParticipants);
     }
 
-    let total_wide = i128::from(total);
-    let mut parts: Vec<(MemberId, i128, i128)> = weights
+    let wide: Vec<(MemberId, i128)> = weights
         .iter()
-        .map(|(id, w)| {
-            let num = total_wide * i128::from(*w);
-            (*id, num / weight_sum, num % weight_sum)
+        .map(|(id, w)| (*id, i128::from(*w)))
+        .collect();
+    Ok(weights
+        .iter()
+        .zip(largest_remainder(total, &wide, weight_sum))
+        .map(|((id, _), part)| (*id, part))
+        .collect())
+}
+
+/// Allocates `total` across existing amounts in proportion to them (largest
+/// remainder, ties broken by position). Used to spread a converted total over
+/// the items it came from, so the converted items sum exactly to it.
+///
+/// # Errors
+/// [`SplitError::NegativeAmount`] if `total` or any amount is negative;
+/// [`SplitError::NoParticipants`] if all amounts are zero but `total` is not.
+pub fn allocate(total: Minor, amounts: &[Minor]) -> Result<Vec<Minor>, SplitError> {
+    if total < 0 || amounts.iter().any(|a| *a < 0) {
+        return Err(SplitError::NegativeAmount);
+    }
+    let sum: i128 = amounts.iter().map(|a| i128::from(*a)).sum();
+    if sum == 0 {
+        return if total == 0 {
+            Ok(vec![0; amounts.len()])
+        } else {
+            Err(SplitError::NoParticipants)
+        };
+    }
+    let wide: Vec<(usize, i128)> = amounts.iter().map(|a| i128::from(*a)).enumerate().collect();
+    Ok(largest_remainder(total, &wide, sum))
+}
+
+/// Largest-remainder apportionment of a non-negative `total` over
+/// non-negative weights summing to `weight_sum > 0`. Leftover units go to the
+/// largest remainders, ties to the smallest key. Output keeps input order.
+fn largest_remainder<K: Ord + Copy>(
+    total: Minor,
+    weights: &[(K, i128)],
+    weight_sum: i128,
+) -> Vec<Minor> {
+    let total_wide = i128::from(total);
+    let mut parts: Vec<(K, i128, i128)> = weights
+        .iter()
+        .map(|(k, w)| {
+            let num = total_wide * w;
+            (*k, num / weight_sum, num % weight_sum)
         })
         .collect();
 
@@ -66,11 +108,11 @@ pub fn split_weighted(
         parts[i].1 += 1;
     }
 
-    Ok(parts
+    parts
         .into_iter()
         // Each part is <= total, which is an i64.
-        .map(|(id, q, _)| (id, Minor::try_from(q).unwrap_or(Minor::MAX)))
-        .collect())
+        .map(|(_, q, _)| Minor::try_from(q).unwrap_or(Minor::MAX))
+        .collect()
 }
 
 #[cfg(test)]
@@ -117,7 +159,35 @@ mod tests {
         );
     }
 
+    #[test]
+    fn allocate_examples() {
+        assert_eq!(
+            allocate(2903, &[1200, 850, 1100]),
+            Ok(vec![1106, 783, 1014])
+        );
+        assert_eq!(allocate(0, &[0, 0]), Ok(vec![0, 0]));
+        assert_eq!(allocate(5, &[0, 0]), Err(SplitError::NoParticipants));
+        assert_eq!(allocate(5, &[1, -1]), Err(SplitError::NegativeAmount));
+        // Equal remainders: the earlier position wins.
+        assert_eq!(allocate(1, &[1, 1]), Ok(vec![1, 0]));
+    }
+
     proptest! {
+        #[test]
+        fn allocation_sums_to_total(
+            total in 0i64..10_000_000_000,
+            amounts in proptest::collection::vec(0i64..10_000_000, 1..30),
+        ) {
+            prop_assume!(amounts.iter().any(|a| *a > 0));
+            let out = allocate(total, &amounts).unwrap();
+            prop_assert_eq!(out.iter().sum::<i64>(), total);
+            let sum: i128 = amounts.iter().map(|a| i128::from(*a)).sum();
+            for (part, a) in out.iter().zip(&amounts) {
+                let floor = i128::from(total) * i128::from(*a) / sum;
+                prop_assert!(i128::from(*part) == floor || i128::from(*part) == floor + 1);
+            }
+        }
+
         #[test]
         fn parts_sum_to_total_and_are_fair(
             total in 0i64..10_000_000_000,
