@@ -3,21 +3,25 @@ resolver = "3"
 members = [
   "crates/dibill-domain",
   "crates/dibill-core",
+  "crates/dibill-store",
   "crates/dibill-server",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.89"
 license = "LicenseRef-Proprietary"
 publish = false
 
 [workspace.dependencies]
 dibill-domain = { path = "crates/dibill-domain", version = "0.1.0" }
+dibill-store = { path = "crates/dibill-store", version = "0.1.0" }
 thiserror = "2"
 uuid = { version = "1", features = ["v7"] }
 proptest = "1"
+rusqlite = { version = "0.41", default-features = false, features = ["bundled", "cache", "uuid"] }
+tempfile = "3"
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 rust_decimal = { version = "1.43", default-features = false, features = ["std"] }
 
