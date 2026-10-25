@@ -39,7 +39,7 @@ Mark items `[x]` when merged and link the PR.
 - [x] Refine `docs/SPEC.md` calculation rules with worked examples from the tests (in the SPEC PR).
 - [x] Transaction kinds from SPEC §1: income (signs flip) alongside expense and transfer. ([#23](https://github.com/carlosbelop/DiBillSion/pull/23))
 - [x] Split modes from SPEC §4: exact amounts per member and mixed (fixed amounts + parts for the rest), with validation that amounts add up. ([#25](https://github.com/carlosbelop/DiBillSion/pull/25))
-- [ ] Member status (active/inactive): inactive members excluded from new splits, kept in balances.
+- [x] Member status (active/inactive): inactive members excluded from new splits, kept in balances. (PR_MEMBERS)
 
 ### M3: Local-only Android app
 - [ ] `dibill-store`: SQLite (rusqlite bundled + migrations), WAL, repository API.
