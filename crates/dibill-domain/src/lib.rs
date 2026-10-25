@@ -1,13 +1,16 @@
 //! Domain model and money algorithms for DiBillSion.
 //!
-//! All amounts are integer *minor units* (cents) of a single currency.
-//! Currency conversion happens before values reach this crate.
+//! All amounts are integer *minor units* (cents). Algorithms work in a single
+//! currency; [`convert`] brings foreign amounts into it first.
 
 mod balance;
+mod currency;
 mod settle;
 mod split;
 
 pub use balance::{Expense, balances};
+pub use currency::{Currency, CurrencyError, FxError, FxRate, convert};
+pub use rust_decimal::Decimal;
 pub use settle::{Transfer, settle_up};
 pub use split::{SplitError, split_weighted};
 
