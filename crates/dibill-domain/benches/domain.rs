@@ -42,10 +42,7 @@ fn expenses(rng: &mut Rng) -> Vec<Expense> {
         .map(|_| {
             let first = rng.below(MEMBERS - PER_EXPENSE);
             let shares = (first..first + PER_EXPENSE)
-                .map(|n| ItemShare {
-                    member: member(n),
-                    weight: 1,
-                })
+                .map(|n| ItemShare::parts(member(n), 1))
                 .collect();
             Expense::single(member(rng.below(MEMBERS)), amount(rng), shares)
         })

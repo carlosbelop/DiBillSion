@@ -1,14 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{MemberId, Minor, SplitError, Transfer, split_weighted};
-
-/// Who shares one item, and in what proportion. Equal split = all weights 1;
-/// an exact amount per member = weights in minor units that sum to the total.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ItemShare {
-    pub member: MemberId,
-    pub weight: u32,
-}
+use crate::{ItemShare, MemberId, Minor, SplitError, Transfer, split_item};
 
 /// One line of an expense: a receipt row, or the whole amount of a manual
 /// expense. Each item is split independently among its own members.
@@ -85,7 +77,6 @@ pub fn balances(
     transfers: &[Transfer],
 ) -> Result<BTreeMap<MemberId, Minor>, SplitError> {
     let mut net: BTreeMap<MemberId, Minor> = BTreeMap::new();
-    let mut weights = Vec::new();
     for e in expenses {
         if e.items.is_empty() {
             return Err(SplitError::NoItems);
@@ -95,10 +86,8 @@ pub fn balances(
             ExpenseKind::Income => -1,
         };
         for item in &e.items {
-            weights.clear();
-            weights.extend(item.shares.iter().map(|s| (s.member, s.weight)));
             *net.entry(e.payer).or_default() += sign * item.total;
-            for (member, owed) in split_weighted(item.total, &weights)? {
+            for (member, owed) in split_item(item.total, &item.shares)? {
                 *net.entry(member).or_default() -= sign * owed;
             }
         }
@@ -125,13 +114,7 @@ mod tests {
     }
 
     fn equal(members: &[u128]) -> Vec<ItemShare> {
-        members
-            .iter()
-            .map(|&n| ItemShare {
-                member: m(n),
-                weight: 1,
-            })
-            .collect()
+        members.iter().map(|&n| ItemShare::parts(m(n), 1)).collect()
     }
 
     #[test]
@@ -250,10 +233,7 @@ mod tests {
                 total,
                 shares: ws
                     .into_iter()
-                    .map(|(n, weight)| ItemShare {
-                        member: m(n),
-                        weight,
-                    })
+                    .map(|(n, weight)| ItemShare::parts(m(n), weight))
                     .collect(),
             })
     }
@@ -315,8 +295,7 @@ mod tests {
             let item = &e.items[0];
             let one = Expense { kind: e.kind, payer: e.payer, items: vec![item.clone()] };
             let b = balances(&[one], &[]).unwrap();
-            let weights: Vec<_> = item.shares.iter().map(|s| (s.member, s.weight)).collect();
-            for (member, owed) in split_weighted(item.total, &weights).unwrap() {
+            for (member, owed) in split_item(item.total, &item.shares).unwrap() {
                 let sign = if e.kind == ExpenseKind::Income { -1 } else { 1 };
                 let paid = if member == e.payer { item.total } else { 0 };
                 prop_assert_eq!(b[&member], sign * (paid - owed));
