@@ -1,0 +1,20 @@
+[package]
+name = "dibill-store"
+description = "On-device SQLite persistence (groups, members, transactions) with migrations."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+dibill-domain.workspace = true
+rusqlite.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

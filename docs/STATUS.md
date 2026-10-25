@@ -7,7 +7,7 @@ Last updated: 2026-10-25 (session 2)
 
 ## Where we are
 
-**M0 (tooling): done. M1 (study): static analysis done, SPEC drafted; black-box pass waits for the phone. M2 (domain): core items done.** Next: domain follow-ups from the SPEC, then M3.
+**M0 (tooling): done. M1 (study): static analysis done, SPEC drafted; black-box pass waits for the phone. M2 (domain): core items done.** M2 done. **M3 (local Android app): in progress** — store done, UniFFI facade next.
 
 ### Done
 - WSL2 Ubuntu 24.04 environment (`scripts/setup-ubuntu.sh`): Rust stable + Android targets, cargo-nextest/deny/llvm-cov/ndk/bloat, Node 24 (nvm), OpenJDK 21, jadx-headless-mcp 0.7.1, Apktool 3.0.3, adb, gh.
@@ -42,7 +42,7 @@ Mark items `[x]` when merged and link the PR.
 - [x] Member status (active/inactive): inactive members excluded from new splits, kept in balances. ([#27](https://github.com/carlosbelop/DiBillSion/pull/27))
 
 ### M3: Local-only Android app
-- [ ] `dibill-store`: SQLite (rusqlite bundled + migrations), WAL, repository API.
+- [x] `dibill-store`: SQLite (rusqlite bundled + migrations), WAL, repository API. (PR_STORE, ADR 0003)
 - [ ] `dibill-core`: UniFFI facade (coarse-grained, async), Kotlin bindings generation.
 - [ ] Android SDK + NDK r27+ in WSL via command-line tools. ⚠️ Accepting the Android SDK licenses (`sdkmanager --licenses`) is accepting terms: ask the owner.
 - [ ] Compose shell: groups, members, expenses, balances, settle-up. Offline only.
