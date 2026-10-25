@@ -4,6 +4,11 @@ all-features = true
 
 [advisories]
 yanked = "deny"
+ignore = [
+  # Unmaintained (not vulnerable) TOML parser pulled in only by uniffi_bindgen's template engine,
+  # i.e. the build-time `bindgen` feature; never linked into the apps. Revisit when UniFFI updates.
+  { id = "RUSTSEC-2026-0374", reason = "build-time only via uniffi_bindgen; unmaintained, no vulnerability" },
+]
 
 [licenses]
 # Permissive licenses only (the app is proprietary / sold in stores).
