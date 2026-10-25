@@ -25,7 +25,7 @@
     <string name="mark_paid">Marcar como pagado</string>
     <string name="add_person">Añadir persona</string>
     <string name="person_name">Nombre</string>
-    <string name="inactive">inactiva</string>
+    <string name="inactive">No participa en gastos nuevos</string>
     <string name="deactivate">Desactivar</string>
     <string name="activate">Activar</string>
     <string name="title">¿Qué era?</string>
@@ -37,4 +37,16 @@
     <string name="error_amount">Introduce un importe positivo válido.</string>
     <string name="error_rate">Introduce el tipo de cambio.</string>
     <string name="error_nobody">Elige al menos una persona.</string>
+    <string name="confirm_delete_expense">¿Borrar «%1$s»?</string>
+    <string name="confirm_delete_person">¿Quitar a %1$s del grupo?</string>
+    <string name="confirm_paid">¿Anotar que %1$s pagó %2$s a %3$s?</string>
+    <string name="err_not_found">Ese elemento ya no existe.</string>
+    <string name="err_unknown_currency">No reconocemos la moneda «%1$s». Usa un código de tres letras, como EUR.</string>
+    <string name="err_invalid_rate">El tipo de cambio debe ser un número mayor que cero.</string>
+    <string name="err_unknown_member">Esa persona no está en este grupo.</string>
+    <string name="err_member_inactive">Alguien de este gasto ya no participa en gastos nuevos.</string>
+    <string name="err_member_has_history">Esta persona ya aparece en gastos y no se puede quitar. Desactívala en su lugar.</string>
+    <string name="err_invalid_split">El reparto no cuadra. Revisa los importes y quién participa.</string>
+    <string name="err_invalid_input">Hay algún dato del formulario que no es válido.</string>
+    <string name="err_storage">No se ha podido guardar en este dispositivo. Inténtalo de nuevo.</string>
 </resources>

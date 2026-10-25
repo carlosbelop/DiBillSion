@@ -24,7 +24,7 @@ class CoreSmokeTest {
             core.saveTransaction(
                 TransactionDto(
                     null, g, TransactionKindDto.EXPENSE, "Dinner", a, "EUR", null, 20_000,
-                    listOf(ItemDto(null, 1001, listOf(ShareDto(a, 1u, null), ShareDto(b, 1u, null)))),
+                    listOf(ItemDto(null, 1001, listOf(ShareDto(a, 1u, null), ShareDto(b, 1u, null)))), null,
                 ),
             )
             val s = core.balances(g).suggestions.single()
@@ -33,14 +33,14 @@ class CoreSmokeTest {
             core.saveTransaction(
                 TransactionDto(
                     null, g, TransactionKindDto.TRANSFER, "", b, "EUR", null, 20_001,
-                    listOf(ItemDto(null, 500, listOf(ShareDto(a, null, 500)))),
+                    listOf(ItemDto(null, 500, listOf(ShareDto(a, null, 500)))), null,
                 ),
             )
             assertTrue(core.balances(g).balances.all { it.amountMinor == 0L })
         }
     }
 
-    @Test(expected = CoreException.InvalidInput::class)
+    @Test(expected = CoreException.UnknownCurrency::class)
     fun validationErrorsSurfaceAsExceptions() {
         Core.inMemory().use { it.createGroup("X", null, GroupKindDto.OTHER, "EURO") }
     }

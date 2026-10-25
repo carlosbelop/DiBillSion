@@ -11,7 +11,10 @@
 use std::collections::BTreeMap;
 use std::sync::{Mutex, MutexGuard};
 
-use dibill_domain::{Currency, FxRate, ItemShare, MemberId, MemberStatus, Portion};
+use dibill_domain::{
+    Currency, CurrencyError, FxError, FxRate, ItemShare, MemberError, MemberId, MemberStatus,
+    Portion, convert,
+};
 use dibill_store::{
     GroupId, GroupKind, Item, Store, StoreError, Transaction, TransactionId, TransactionKind,
 };
@@ -37,27 +40,49 @@ pub fn currency_exponent(code: String) -> Result<u8, CoreError> {
     Ok(currency(&code)?.exponent())
 }
 
+/// Typed so the apps can show a localized message per case; `reason` carries
+/// English detail for logs only.
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum CoreError {
-    // Not `message`: that would clash with `Exception.message` in Kotlin/Swift.
-    #[error("invalid input: {reason}")]
-    InvalidInput { reason: String },
     #[error("not found")]
     NotFound,
+    #[error("unknown currency: {code}")]
+    UnknownCurrency { code: String },
+    #[error("a foreign-currency transaction needs an exchange rate")]
+    MissingRate,
+    #[error("the exchange rate must be a positive number")]
+    InvalidRate,
+    #[error("member is not in this group")]
+    UnknownMember,
+    #[error("member is inactive")]
+    MemberInactive,
+    #[error("member appears in transactions; deactivate them instead")]
+    MemberHasHistory,
+    // Not `message`: that would clash with `Exception.message` in Kotlin/Swift.
+    #[error("the split doesn't add up: {reason}")]
+    InvalidSplit { reason: String },
+    #[error("invalid input: {reason}")]
+    InvalidInput { reason: String },
     #[error("storage error: {reason}")]
     Storage { reason: String },
 }
 
 impl From<StoreError> for CoreError {
     fn from(e: StoreError) -> Self {
+        let reason = e.to_string();
         match e {
             StoreError::NotFound => Self::NotFound,
-            StoreError::Sqlite(_) | StoreError::Corrupt(_) => Self::Storage {
-                reason: e.to_string(),
-            },
-            _ => Self::InvalidInput {
-                reason: e.to_string(),
-            },
+            StoreError::Sqlite(_) | StoreError::Corrupt(_) => Self::Storage { reason },
+            StoreError::Currency(CurrencyError::UnknownCode(code)) => {
+                Self::UnknownCurrency { code }
+            }
+            StoreError::MissingRate => Self::MissingRate,
+            StoreError::Fx(FxError::NonPositiveRate | FxError::InvalidRate) => Self::InvalidRate,
+            StoreError::Member(MemberError::Unknown(_)) => Self::UnknownMember,
+            StoreError::Member(MemberError::Inactive(_)) => Self::MemberInactive,
+            StoreError::MemberHasHistory => Self::MemberHasHistory,
+            StoreError::Split(_) | StoreError::MalformedTransfer => Self::InvalidSplit { reason },
+            _ => Self::InvalidInput { reason },
         }
     }
 }
@@ -123,6 +148,9 @@ pub struct TransactionDto {
     pub fx_rate: Option<String>,
     pub date_days: i32,
     pub items: Vec<ItemDto>,
+    /// Total in the group's base currency when `currency` is foreign. Filled
+    /// by the core when listing; ignored when saving.
+    pub base_total_minor: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
@@ -299,12 +327,29 @@ impl Core {
     /// # Errors
     /// [`CoreError::Storage`].
     pub fn transactions(&self, group_id: String) -> Result<Vec<TransactionDto>, CoreError> {
-        Ok(self
-            .store()
-            .transactions(GroupId(uuid(&group_id)?))?
+        let store = self.store();
+        let group = GroupId(uuid(&group_id)?);
+        let base = store.group(group)?.base_currency;
+        store
+            .transactions(group)?
             .into_iter()
-            .map(to_dto)
-            .collect())
+            .map(|t| {
+                let base_total = match t.fx_rate {
+                    Some(rate) => {
+                        let total = t.items.iter().map(|i| i.total).sum();
+                        Some(
+                            convert(total, t.currency, base, rate)
+                                .map_err(|e| invalid(e.to_string()))?,
+                        )
+                    }
+                    None => None,
+                };
+                Ok(TransactionDto {
+                    base_total_minor: base_total,
+                    ..to_dto(t)
+                })
+            })
+            .collect()
     }
 
     /// # Errors
@@ -396,7 +441,9 @@ fn member(s: &str) -> Result<MemberId, CoreError> {
 }
 
 fn currency(code: &str) -> Result<Currency, CoreError> {
-    Currency::from_code(code).map_err(|e| invalid(e.to_string()))
+    Currency::from_code(code).map_err(|_| CoreError::UnknownCurrency {
+        code: code.to_owned(),
+    })
 }
 
 fn from_dto(t: TransactionDto) -> Result<Transaction, CoreError> {
@@ -447,7 +494,7 @@ fn from_dto(t: TransactionDto) -> Result<Transaction, CoreError> {
             .as_deref()
             .map(str::parse::<FxRate>)
             .transpose()
-            .map_err(|e| invalid(e.to_string()))?,
+            .map_err(|_| CoreError::InvalidRate)?,
         date_days: t.date_days,
         items,
     })
@@ -467,6 +514,7 @@ fn to_dto(t: Transaction) -> TransactionDto {
         currency: t.currency.code().to_owned(),
         fx_rate: t.fx_rate.map(|r| r.value().to_string()),
         date_days: t.date_days,
+        base_total_minor: None,
         items: t
             .items
             .into_iter()
@@ -529,6 +577,7 @@ mod tests {
                 total_minor: 1000,
                 shares: equal(&[&a, &b]),
             }],
+            base_total_minor: None,
         };
         let id = core.save_transaction(dinner.clone()).unwrap();
         let listed = core.transactions(g.clone()).unwrap();
@@ -536,6 +585,7 @@ mod tests {
             listed,
             vec![TransactionDto {
                 id: Some(id),
+                base_total_minor: Some(922),
                 ..dinner
             }]
         );
@@ -562,7 +612,7 @@ mod tests {
         let core = Core::in_memory().unwrap();
         assert!(matches!(
             core.create_group("X".into(), None, GroupKindDto::Other, "EURO".into()),
-            Err(CoreError::InvalidInput { .. })
+            Err(CoreError::UnknownCurrency { .. })
         ));
         assert!(matches!(
             core.delete_group(Uuid::nil().to_string()),
@@ -578,8 +628,9 @@ mod tests {
             .unwrap();
         let a = core.add_member(g.clone(), "A".into()).unwrap();
         let bad = TransactionDto {
+            base_total_minor: None,
             id: None,
-            group_id: g,
+            group_id: g.clone(),
             kind: TransactionKindDto::Expense,
             title: String::new(),
             payer_id: a.clone(),
@@ -590,15 +641,68 @@ mod tests {
                 label: None,
                 total_minor: 100,
                 shares: vec![ShareDto {
-                    member_id: a,
+                    member_id: a.clone(),
                     parts: Some(1),
                     amount_minor: Some(1),
                 }],
             }],
         };
         assert!(matches!(
-            core.save_transaction(bad),
+            core.save_transaction(bad.clone()),
             Err(CoreError::InvalidInput { .. })
+        ));
+
+        // Each failure the app shows gets its own variant.
+        let ok_share = vec![ShareDto {
+            member_id: a.clone(),
+            parts: Some(1),
+            amount_minor: None,
+        }];
+        let base = TransactionDto {
+            items: vec![ItemDto {
+                label: None,
+                total_minor: 100,
+                shares: ok_share,
+            }],
+            ..bad
+        };
+        let usd = TransactionDto {
+            currency: "USD".into(),
+            ..base.clone()
+        };
+        assert!(matches!(
+            core.save_transaction(usd.clone()),
+            Err(CoreError::MissingRate)
+        ));
+        let bad_rate = TransactionDto {
+            fx_rate: Some("-1".into()),
+            ..usd
+        };
+        assert!(matches!(
+            core.save_transaction(bad_rate),
+            Err(CoreError::InvalidRate)
+        ));
+        let nobody = TransactionDto {
+            items: vec![ItemDto {
+                label: None,
+                total_minor: 100,
+                shares: vec![],
+            }],
+            ..base.clone()
+        };
+        assert!(matches!(
+            core.save_transaction(nobody),
+            Err(CoreError::InvalidSplit { .. })
+        ));
+        core.save_transaction(base.clone()).unwrap();
+        assert!(matches!(
+            core.delete_member(a.clone()),
+            Err(CoreError::MemberHasHistory)
+        ));
+        core.set_member_active(a, false).unwrap();
+        assert!(matches!(
+            core.save_transaction(base),
+            Err(CoreError::MemberInactive)
         ));
     }
 }
