@@ -1,0 +1,174 @@
+package com.dibillsion.app
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.dibillsion.core.BalancesDto
+import com.dibillsion.core.Core
+import com.dibillsion.core.CoreException
+import com.dibillsion.core.GroupDto
+import com.dibillsion.core.GroupKindDto
+import com.dibillsion.core.ItemDto
+import com.dibillsion.core.MemberDto
+import com.dibillsion.core.ShareDto
+import com.dibillsion.core.TransactionDto
+import com.dibillsion.core.TransactionKindDto
+import com.dibillsion.core.currencyExponent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.time.LocalDate
+
+/** Everything one group's screen shows. */
+data class GroupDetail(
+    val group: GroupDto,
+    val members: List<MemberDto>,
+    val transactions: List<TransactionDto>,
+    val balances: BalancesDto,
+    val exponent: Int,
+) {
+    fun name(memberId: String): String = members.firstOrNull { it.id == memberId }?.displayName ?: "?"
+}
+
+data class UiState(
+    val groups: List<GroupDto> = emptyList(),
+    val detail: GroupDetail? = null,
+    val error: String? = null,
+)
+
+/**
+ * Talks to the Rust core. Every core call is short and blocking, so it runs on
+ * [Dispatchers.IO]; the UI only observes [state].
+ */
+class AppViewModel(app: Application) : AndroidViewModel(app) {
+    private val coreLazy = lazy { Core.open(File(app.filesDir, "dibill.db").absolutePath) }
+    private val core: Core by coreLazy
+
+    private val _state = MutableStateFlow(UiState())
+    val state: StateFlow<UiState> = _state.asStateFlow()
+
+    init {
+        refreshGroups()
+    }
+
+    fun exponentOf(code: String): Int? = try {
+        currencyExponent(code.uppercase()).toInt()
+    } catch (_: CoreException) {
+        null
+    }
+
+    fun dismissError() = _state.update { it.copy(error = null) }
+
+    fun refreshGroups() = launchCore { _state.update { it.copy(groups = core.groups()) } }
+
+    fun createGroup(name: String, currency: String, people: List<String>) = launchCore {
+        val id = core.createGroup(name.trim(), null, GroupKindDto.OTHER, currency.trim().uppercase())
+        people.map { it.trim() }.filter { it.isNotEmpty() }.forEach { core.addMember(id, it) }
+        _state.update { it.copy(groups = core.groups()) }
+        loadDetail(id)
+    }
+
+    fun openGroup(id: String) = launchCore { loadDetail(id) }
+
+    fun closeGroup() {
+        _state.update { it.copy(detail = null) }
+        refreshGroups()
+    }
+
+    fun addMember(name: String) = inGroup { core.addMember(it.group.id, name.trim()) }
+
+    fun setMemberActive(id: String, active: Boolean) = inGroup { core.setMemberActive(id, active) }
+
+    fun deleteMember(id: String) = inGroup { core.deleteMember(id) }
+
+    fun deleteTransaction(id: String) = inGroup { core.deleteTransaction(id) }
+
+    /** An equal split of [amountMinor] between [among], paid by [payerId]. */
+    fun addExpense(
+        title: String,
+        amountMinor: Long,
+        currency: String,
+        fxRate: String?,
+        payerId: String,
+        among: List<String>,
+    ) = inGroup { d ->
+        core.saveTransaction(
+            TransactionDto(
+                id = null,
+                groupId = d.group.id,
+                kind = TransactionKindDto.EXPENSE,
+                title = title.trim(),
+                payerId = payerId,
+                currency = currency,
+                fxRate = fxRate,
+                dateDays = today(),
+                items = listOf(ItemDto(null, amountMinor, among.map { ShareDto(it, 1u, null) })),
+            ),
+        )
+    }
+
+    /** Records a suggested reimbursement as paid (a transfer in the base currency). */
+    fun markPaid(fromId: String, toId: String, amountMinor: Long) = inGroup { d ->
+        core.saveTransaction(
+            TransactionDto(
+                id = null,
+                groupId = d.group.id,
+                kind = TransactionKindDto.TRANSFER,
+                title = "",
+                payerId = fromId,
+                currency = d.group.baseCurrency,
+                fxRate = null,
+                dateDays = today(),
+                items = listOf(ItemDto(null, amountMinor, listOf(ShareDto(toId, null, amountMinor)))),
+            ),
+        )
+    }
+
+    private fun today(): Int = LocalDate.now().toEpochDay().toInt()
+
+    private fun loadDetail(groupId: String) {
+        val group = core.groups().first { it.id == groupId }
+        val detail = GroupDetail(
+            group = group,
+            members = core.members(groupId),
+            transactions = core.transactions(groupId),
+            balances = core.balances(groupId),
+            exponent = currencyExponent(group.baseCurrency).toInt(),
+        )
+        _state.update { it.copy(detail = detail) }
+    }
+
+    /** Runs [block] against the open group, then reloads it. */
+    private fun inGroup(block: (GroupDetail) -> Unit) = launchCore {
+        val d = _state.value.detail ?: return@launchCore
+        block(d)
+        loadDetail(d.group.id)
+    }
+
+    private fun launchCore(block: () -> Unit) {
+        viewModelScope.launch {
+            val error = withContext(Dispatchers.IO) {
+                try {
+                    block()
+                    null
+                } catch (e: CoreException) {
+                    when (e) {
+                        is CoreException.InvalidInput -> e.reason
+                        is CoreException.Storage -> e.reason
+                        is CoreException.NotFound -> "Not found"
+                    }
+                }
+            }
+            if (error != null) _state.update { it.copy(error = error) }
+        }
+    }
+
+    override fun onCleared() {
+        if (coreLazy.isInitialized()) core.close()
+    }
+}

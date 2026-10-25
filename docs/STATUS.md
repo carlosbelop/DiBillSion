@@ -7,7 +7,7 @@ Last updated: 2026-10-25 (session 2)
 
 ## Where we are
 
-**M0 (tooling): done. M1 (study): static analysis done, SPEC drafted; black-box pass waits for the phone. M2 (domain): core items done.** M2 done. **M3 (local Android app): in progress** — store, UniFFI facade and SDK/NDK done; Compose shell next.
+**M0 (tooling): done. M1 (study): static analysis done, SPEC drafted; black-box pass waits for the phone. M2 (domain): core items done.** M2 done. **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; on-device run pending the phone.
 
 ### Done
 - WSL2 Ubuntu 24.04 environment (`scripts/setup-ubuntu.sh`): Rust stable + Android targets, cargo-nextest/deny/llvm-cov/ndk/bloat, Node 24 (nvm), OpenJDK 21, jadx-headless-mcp 0.7.1, Apktool 3.0.3, adb, gh.
@@ -45,8 +45,10 @@ Mark items `[x]` when merged and link the PR.
 - [x] `dibill-store`: SQLite (rusqlite bundled + migrations), WAL, repository API. ([#29](https://github.com/carlosbelop/DiBillSion/pull/29), ADR 0003)
 - [x] `dibill-core`: UniFFI facade, Kotlin bindings generation (`scripts/gen-bindings.sh`). ([#31](https://github.com/carlosbelop/DiBillSion/pull/31)) Synchronous for now; the apps call it off the UI thread. Async can come with sync (M5).
 - [x] Android SDK + NDK in WSL via command-line tools (`scripts/setup-ubuntu.sh`: platform 37, build-tools 37, NDK r29). Licenses accepted with the owner's approval (2026-10-25). ([#35](https://github.com/carlosbelop/DiBillSion/pull/35))
-- [ ] Compose shell: groups, members, expenses, balances, settle-up. Offline only.
-- [ ] CI job: `cargo ndk` build + Gradle assemble.
+- [x] Compose shell: groups, members, expenses, balances, settle-up. Offline only. (PR_SHELL) Builds and passes JVM tests (including a smoke test through the real core); **not yet run on a device**.
+- [x] CI job: `cargo ndk` build + Gradle assemble + unit tests, debug APK uploaded as an artifact (same PR).
+- [ ] Run the app on the Pixel (needs adb re-pairing) or an emulator; fix what shows up.
+- [ ] Finalize `applicationId` (currently placeholder `com.dibillsion.app`) and app icon before M8 (branding: owner).
 
 ### Later
 M4 iOS (needs macOS) · M5 backend + sync + invites · M6 polish · M7 receipt scanning (VLM) · M8 store release. See PLAN §4.
