@@ -8,7 +8,7 @@ mod currency;
 mod settle;
 mod split;
 
-pub use balance::{Expense, balances};
+pub use balance::{Expense, ExpenseItem, ItemShare, balances};
 pub use currency::{Currency, CurrencyError, FxError, FxRate, convert};
 pub use rust_decimal::Decimal;
 pub use settle::{Transfer, settle_up};

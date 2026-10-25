@@ -8,6 +8,8 @@ pub enum SplitError {
     NoParticipants,
     #[error("member listed more than once")]
     DuplicateMember,
+    #[error("an expense needs at least one item")]
+    NoItems,
 }
 
 /// Splits `total` among members proportionally to their weights using the
