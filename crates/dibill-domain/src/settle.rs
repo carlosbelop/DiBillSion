@@ -84,6 +84,27 @@ mod tests {
         );
     }
 
+    #[test]
+    fn matches_largest_pairs_first() {
+        // Paying creditors one after another in list order would need 3 transfers.
+        let b = BTreeMap::from([(m(1), 600), (m(2), 400), (m(3), -400), (m(4), -600)]);
+        assert_eq!(
+            settle_up(&b),
+            vec![
+                Transfer {
+                    from: m(4),
+                    to: m(1),
+                    amount: 600
+                },
+                Transfer {
+                    from: m(3),
+                    to: m(2),
+                    amount: 400
+                },
+            ]
+        );
+    }
+
     proptest! {
         #[test]
         fn transfers_zero_out_balances(vals in proptest::collection::vec(-1_000_000i64..1_000_000, 1..30)) {

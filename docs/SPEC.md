@@ -4,8 +4,8 @@
 > This is the only study output allowed in the repo: no code, strings, assets or API details
 > from third-party apps. It describes **DiBillSion**, including where we deliberately differ.
 >
-> Status: draft v1 (2026-10-25). Items marked **(open)** still need black-box observation
-> (PLAN §2.4) or a product decision.
+> Status: draft v2 (2026-10-25), black-box observation done. Items marked **(open)** are product
+> decisions still to make.
 
 ## 1. Features
 
@@ -48,7 +48,14 @@
   across devices. Account and data deletion inside the app.
 - **Languages:** English and Spanish at launch.
 
-### 1.2 Differentiator (M7)
+### 1.2 Exact to the cent (all milestones)
+Every amount, share and balance is a whole number of the currency's smallest unit. Shares of an item
+always add up to the item, balances always add up to exactly zero, and once everyone pays the
+suggested reimbursements every balance is exactly zero. A split never leaves a stray cent that nobody
+owes, and a list never shows shares that add up to more or less than the total. (The studied app keeps
+fractional shares and rounds each balance on its own, which leaves such cents behind.)
+
+### 1.3 Differentiator (M7)
 - **Receipt scanning.** Take a photo of a receipt → the server's VLM returns line items
   (label, quantity, unit price, line total, discounts, tax, tip) → the user edits them and
   assigns each item to members ("everyone" by default) → one expense with many items.
@@ -123,10 +130,14 @@ language, locale or member names. Ties are broken by member id.
 - **Settle-up.** Greedy: repeatedly match the largest debtor with the largest creditor (ties
   by member id). At most `n − 1` transfers. Applying all suggestions zeroes every balance.
   Balances A +18.00, B −6.00, C −12.00 → C pays A 12.00, B pays A 6.00.
+  Balances A +6.00, B +4.00, C −4.00, D −6.00 → D pays A 6.00, C pays B 4.00 (2 transfers; paying
+  creditors one after another in list order would need 3).
+  The result never depends on names, language or the order members were listed in.
 - **Exact-amount splits** must add up to the item total; the editor shows the difference and
   blocks saving until it is zero.
 - **Mixed splits:** fixed amounts first; the remainder (never negative) is split by parts.
-- _Open: rounding comparison with the studied app on 10.00/3, 0.01/2 and 100/7 (black-box)._
+- **Display.** A transaction in a foreign currency shows both the original amount and the converted
+  amount, in lists and in details. Amount fields accept only as many decimals as the currency has.
 
 ## 5. Edge cases
 
@@ -134,12 +145,18 @@ language, locale or member names. Ties are broken by member id.
 - **Nobody included:** cannot save. Every item needs at least one member with a non-zero weight.
 - **Payer not included:** allowed (paid for others only).
 - **Rate:** must be positive. Changing the group's base currency does **not** rewrite old
-  rates silently; the user is asked to confirm a re-conversion. (open: what the studied app does)
+  rates silently; the user is asked to confirm a re-conversion.
+- **Rate entry:** the rate field shows a suggested market rate (needs the backend, M5) that the user
+  can accept or overwrite; offline, the last rate used for that currency pair is suggested.
 - **Overflow:** amounts beyond `i64` minor units are rejected, never wrapped.
 - **Deactivated member:** keeps their balance; can still settle; cannot be picked for new
   splits.
 - **Concurrent offline edits (M5):** last writer wins per field (Lamport clock), deletes are
-  tombstones. (open: observe the studied app's behaviour for comparison)
+  tombstones. (Not observable on one device; covered by the sync design in M5.)
+- **Destructive or money-moving actions** (delete a transaction or person, mark a reimbursement as
+  paid) ask for confirmation first.
+- **Removing a member** keeps their past shares and their balance as they are; nothing is spread over
+  the others (see flow 7).
 - **Invite link turned off:** opening it shows "link no longer valid".
 - **Receipt items with discounts (M7):** negative lines are folded into the item they apply to
   before splitting; a receipt never yields a negative item.
