@@ -37,7 +37,7 @@ Mark items `[x]` when merged and link the PR.
 - [x] `criterion` benchmarks for split, balances and settle-up (1k members, 100k expenses). ([#17](https://github.com/carlosbelop/DiBillSion/pull/17), baseline in [BENCHMARKS.md](BENCHMARKS.md))
 - [x] Convert multi-item expenses once and allocate across items ([#19](https://github.com/carlosbelop/DiBillSion/pull/19)).
 - [x] Refine `docs/SPEC.md` calculation rules with worked examples from the tests (in the SPEC PR).
-- [ ] Transaction kinds from SPEC §1: income (signs flip) alongside expense and transfer.
+- [x] Transaction kinds from SPEC §1: income (signs flip) alongside expense and transfer. (PR_INCOME)
 - [ ] Split modes from SPEC §4: exact amounts per member and mixed (fixed amounts + parts for the rest), with validation that amounts add up.
 - [ ] Member status (active/inactive): inactive members excluded from new splits, kept in balances.
 

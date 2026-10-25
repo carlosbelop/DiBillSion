@@ -18,10 +18,22 @@ pub struct ExpenseItem {
     pub shares: Vec<ItemShare>,
 }
 
-/// An expense already converted to the group's base currency.
-/// What the payer paid is the sum of the item totals.
+/// Whether money left or entered the group through the payer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExpenseKind {
+    /// The payer paid for the items on behalf of their members.
+    #[default]
+    Expense,
+    /// The payer received money that belongs to the items' members (a refund,
+    /// a returned deposit). Signs flip: the payer ends up owing it.
+    Income,
+}
+
+/// An expense or income already converted to the group's base currency.
+/// What the payer paid (or received) is the sum of the item totals.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Expense {
+    pub kind: ExpenseKind,
     pub payer: MemberId,
     pub items: Vec<ExpenseItem>,
 }
@@ -31,8 +43,18 @@ impl Expense {
     #[must_use]
     pub fn single(payer: MemberId, total: Minor, shares: Vec<ItemShare>) -> Self {
         Self {
+            kind: ExpenseKind::Expense,
             payer,
             items: vec![ExpenseItem { total, shares }],
+        }
+    }
+
+    /// Money `receiver` got on behalf of the members in `shares`.
+    #[must_use]
+    pub fn income(receiver: MemberId, total: Minor, shares: Vec<ItemShare>) -> Self {
+        Self {
+            kind: ExpenseKind::Income,
+            ..Self::single(receiver, total, shares)
         }
     }
 
@@ -47,6 +69,8 @@ impl Expense {
 
 /// Net balance per member: positive = is owed money, negative = owes money.
 /// The sum of all balances is always zero.
+///
+/// An income counts with the opposite sign of an identical expense.
 ///
 /// `transfers` are reimbursements already made: the sender's balance goes up
 /// and the receiver's goes down, so applying every transfer suggested by
@@ -66,12 +90,16 @@ pub fn balances(
         if e.items.is_empty() {
             return Err(SplitError::NoItems);
         }
+        let sign = match e.kind {
+            ExpenseKind::Expense => 1,
+            ExpenseKind::Income => -1,
+        };
         for item in &e.items {
             weights.clear();
             weights.extend(item.shares.iter().map(|s| (s.member, s.weight)));
-            *net.entry(e.payer).or_default() += item.total;
+            *net.entry(e.payer).or_default() += sign * item.total;
             for (member, owed) in split_weighted(item.total, &weights)? {
-                *net.entry(member).or_default() -= owed;
+                *net.entry(member).or_default() -= sign * owed;
             }
         }
     }
@@ -127,6 +155,7 @@ mod tests {
         // A pays a 31.50 receipt: pizza 12.00 (A, B), salad 8.50 (C only),
         // drinks 11.00 shared by all three.
         let receipt = Expense {
+            kind: ExpenseKind::Expense,
             payer: m(1),
             items: vec![
                 ExpenseItem {
@@ -155,6 +184,7 @@ mod tests {
     #[test]
     fn expense_without_items_is_rejected() {
         let e = Expense {
+            kind: ExpenseKind::Expense,
             payer: m(1),
             items: vec![],
         };
@@ -174,6 +204,15 @@ mod tests {
         assert_eq!(b[&m(1)], 1000);
         assert_eq!(b[&m(2)], 0);
         assert_eq!(b[&m(3)], -1000);
+    }
+
+    #[test]
+    fn income_flips_signs() {
+        // A gets a 30.00 deposit back that belonged to A, B and C.
+        let b = balances(&[Expense::income(m(1), 3000, equal(&[1, 2, 3]))], &[]).unwrap();
+        assert_eq!(b[&m(1)], -2000);
+        assert_eq!(b[&m(2)], 1000);
+        assert_eq!(b[&m(3)], 1000);
     }
 
     #[test]
@@ -220,10 +259,20 @@ mod tests {
     }
 
     fn arb_expense() -> impl Strategy<Value = Expense> {
-        (0u128..8, proptest::collection::vec(arb_item(), 1..6)).prop_map(|(payer, items)| Expense {
-            payer: m(payer),
-            items,
-        })
+        (
+            any::<bool>(),
+            0u128..8,
+            proptest::collection::vec(arb_item(), 1..6),
+        )
+            .prop_map(|(income, payer, items)| Expense {
+                kind: if income {
+                    ExpenseKind::Income
+                } else {
+                    ExpenseKind::Expense
+                },
+                payer: m(payer),
+                items,
+            })
     }
 
     proptest! {
@@ -242,6 +291,19 @@ mod tests {
         }
 
         #[test]
+        fn income_cancels_identical_expense(e in arb_expense()) {
+            let flipped = Expense {
+                kind: match e.kind {
+                    ExpenseKind::Expense => ExpenseKind::Income,
+                    ExpenseKind::Income => ExpenseKind::Expense,
+                },
+                ..e.clone()
+            };
+            let b = balances(&[e, flipped], &[]).unwrap();
+            prop_assert!(b.values().all(|v| *v == 0));
+        }
+
+        #[test]
         fn settling_up_zeroes_every_balance(es in proptest::collection::vec(arb_expense(), 0..20)) {
             let before = balances(&es, &[]).unwrap();
             let after = balances(&es, &settle_up(&before)).unwrap();
@@ -251,12 +313,13 @@ mod tests {
         #[test]
         fn single_item_matches_whole_expense_split(e in arb_expense()) {
             let item = &e.items[0];
-            let one = Expense { payer: e.payer, items: vec![item.clone()] };
+            let one = Expense { kind: e.kind, payer: e.payer, items: vec![item.clone()] };
             let b = balances(&[one], &[]).unwrap();
             let weights: Vec<_> = item.shares.iter().map(|s| (s.member, s.weight)).collect();
             for (member, owed) in split_weighted(item.total, &weights).unwrap() {
+                let sign = if e.kind == ExpenseKind::Income { -1 } else { 1 };
                 let paid = if member == e.payer { item.total } else { 0 };
-                prop_assert_eq!(b[&member], paid - owed);
+                prop_assert_eq!(b[&member], sign * (paid - owed));
             }
         }
     }
