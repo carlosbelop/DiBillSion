@@ -7,7 +7,7 @@ Last updated: 2026-10-25 (session 2)
 
 ## Where we are
 
-**M0 (tooling): done. M1 (study): static analysis done, SPEC drafted; black-box pass waits for the phone. M2 (domain): core items done.** M2 done. **M3 (local Android app): in progress** — store done, UniFFI facade next.
+**M0 (tooling): done. M1 (study): static analysis done, SPEC drafted; black-box pass waits for the phone. M2 (domain): core items done.** M2 done. **M3 (local Android app): in progress** — store, UniFFI facade and SDK/NDK done; Compose shell next.
 
 ### Done
 - WSL2 Ubuntu 24.04 environment (`scripts/setup-ubuntu.sh`): Rust stable + Android targets, cargo-nextest/deny/llvm-cov/ndk/bloat, Node 24 (nvm), OpenJDK 21, jadx-headless-mcp 0.7.1, Apktool 3.0.3, adb, gh.
@@ -44,7 +44,7 @@ Mark items `[x]` when merged and link the PR.
 ### M3: Local-only Android app
 - [x] `dibill-store`: SQLite (rusqlite bundled + migrations), WAL, repository API. ([#29](https://github.com/carlosbelop/DiBillSion/pull/29), ADR 0003)
 - [x] `dibill-core`: UniFFI facade, Kotlin bindings generation (`scripts/gen-bindings.sh`). ([#31](https://github.com/carlosbelop/DiBillSion/pull/31)) Synchronous for now; the apps call it off the UI thread. Async can come with sync (M5).
-- [ ] Android SDK + NDK r27+ in WSL via command-line tools. ⚠️ Accepting the Android SDK licenses (`sdkmanager --licenses`) is accepting terms: ask the owner.
+- [x] Android SDK + NDK in WSL via command-line tools (`scripts/setup-ubuntu.sh`: platform 37, build-tools 37, NDK r29). Licenses accepted with the owner's approval (2026-10-25). (PR_SDK)
 - [ ] Compose shell: groups, members, expenses, balances, settle-up. Offline only.
 - [ ] CI job: `cargo ndk` build + Gradle assemble.
 
@@ -52,11 +52,11 @@ Mark items `[x]` when merged and link the PR.
 M4 iOS (needs macOS) · M5 backend + sync + invites · M6 polish · M7 receipt scanning (VLM) · M8 store release. See PLAN §4.
 
 ## Known issues and tech debt
+- Remote Control (and mobile push) is disabled by the owner's organization policy, so escalations go in the session's final message and in this file.
 - REA env vars live in `~/.bashrc` (skipped by non-interactive shells) and in `~/.claude/settings.json`. If a non-Claude script needs them, also export them from `~/.profile` and update `scripts/setup-ubuntu.sh`.
 - WSL appends the Windows `PATH`, which includes Windows Node. Always make sure nvm's Node comes first (`source ~/.nvm/nvm.sh`).
 - `main` isn't protected by GitHub (free plan, private repo). The PR workflow is self-enforced, and `.claude/settings.json` denies direct pushes to `main`.
 
 ## Needs the owner (open requests)
 - **Phone for black-box observation (M1 §2.4):** `adb devices` hangs; wireless debugging needs re-pairing (physical). Questions to check are in `_study/notes/03-behavior.md` (end).
-- **Accept Android SDK licenses** (`sdkmanager --licenses`) before the M3 SDK/NDK install, Compose shell and `cargo ndk` CI job.
 - **Approve `docs/SPEC.md` draft v1** (M1 exit criterion). Product calls made in it: CSV/PDF export added, members with history are deactivated rather than deleted, banking/photo-album/import features out of scope.
