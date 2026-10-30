@@ -1,6 +1,6 @@
 [package]
 name = "dibill-server"
-description = "Backend: auth, group sync, invite links, receipt->VLM proxy (axum + PostgreSQL, milestone M5)."
+description = "Backend: device auth, group sync relay, invite links (axum + PostgreSQL, ADR 0006)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,7 +8,25 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-dibill-domain.workspace = true
+axum = "0.8"
+base64 = "0.22"
+deadpool-postgres = "0.14"
+dibill-proto.workspace = true
+getrandom = "0.3"
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
+thiserror.workspace = true
+tokio-postgres = { version = "0.7", features = ["with-uuid-1"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal"] }
+tower-http = { version = "0.6", features = ["compression-gzip", "limit", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
 
 [lints]
 workspace = true
