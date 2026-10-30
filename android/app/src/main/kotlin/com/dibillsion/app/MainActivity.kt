@@ -5,6 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,12 +32,23 @@ class MainActivity : ComponentActivity() {
 private fun App(vm: AppViewModel = viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     Surface {
-        val detail = state.detail
-        if (detail == null) {
-            GroupsScreen(state, vm)
-        } else {
-            BackHandler { vm.closeGroup() }
-            GroupScreen(detail, state.error, vm)
+        // Opening a group slides in from the side; going back slides it out.
+        AnimatedContent(
+            targetState = state.detail?.group?.id,
+            transitionSpec = {
+                val forward = targetState != null
+                (slideInHorizontally { w -> if (forward) w / 3 else -w / 3 } + fadeIn())
+                    .togetherWith(slideOutHorizontally { w -> if (forward) -w / 3 else w / 3 } + fadeOut())
+            },
+            label = "screen",
+        ) { groupId ->
+            val detail = state.detail?.takeIf { it.group.id == groupId }
+            if (groupId == null || detail == null) {
+                GroupsScreen(state, vm)
+            } else {
+                BackHandler { vm.closeGroup() }
+                GroupScreen(detail, state, vm)
+            }
         }
     }
 }

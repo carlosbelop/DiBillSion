@@ -91,4 +91,17 @@
         <item quantity="one">%1$d gasto</item>
         <item quantity="other">%1$d gastos</item>
     </plurals>
+    <string name="change_me">Cambiar quién soy</string>
+    <string name="who_are_you">¿Quién eres?</string>
+    <string name="who_are_you_body">Elige tu nombre para que DiBillSion te muestre lo que debes y lo que te deben. Solo lo recuerda este móvil.</string>
+    <string name="not_now">Ahora no</string>
+    <string name="me_suffix">%1$s (tú)</string>
+    <string name="pick_me_hint">Dinos quién eres para ver aquí tu saldo y tus pagos.</string>
+    <string name="your_balance">Tu saldo</string>
+    <string name="you_owe">Debes %1$s</string>
+    <string name="you_are_owed">Te deben %1$s</string>
+    <string name="you_are_square">Estás en paz</string>
+    <string name="you_pay">Pagas a %1$s</string>
+    <string name="pays_you">%1$s te paga</string>
+    <string name="other_payments">Otros pagos</string>
 </resources>
