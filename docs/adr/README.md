@@ -9,3 +9,4 @@ Never edit an accepted ADR's decision. Write a new one that supersedes it.
 | [0002](0002-fx-conversion-rounding.md) | FX conversion and rounding | accepted |
 | [0003](0003-on-device-storage.md) | On-device storage | accepted |
 | [0004](0004-sync-model.md) | Sync model | accepted |
+| [0005](0005-store-op-log.md) | Op log in the on-device store | accepted |

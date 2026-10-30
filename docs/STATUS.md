@@ -7,7 +7,7 @@ Last updated: 2026-10-30 (session 3)
 
 ## Where we are
 
-**M0 (tooling): done. M1 (study): done, SPEC v2 approved. M2 (domain): done.** **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; first on-device run done (Pixel 9a); only branding (owner) is left. **M5 (backend + sync): in progress** — sync model done (ADR 0004).
+**M0 (tooling): done. M1 (study): done, SPEC v2 approved. M2 (domain): done.** **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; first on-device run done (Pixel 9a); only branding (owner) is left. **M5 (backend + sync): in progress** — sync model (ADR 0004) and store op log (ADR 0005) done.
 
 ### Done
 - WSL2 Ubuntu 24.04 environment (`scripts/setup-ubuntu.sh`): Rust stable + Android targets, cargo-nextest/deny/llvm-cov/ndk/bloat, Node 24 (nvm), OpenJDK 21, jadx-headless-mcp 0.7.1, Apktool 3.0.3, adb, gh.
@@ -51,9 +51,9 @@ Mark items `[x]` when merged and link the PR.
 - [ ] Finalize `applicationId` (currently placeholder `com.dibillsion.app`) and app icon before M8 (branding: owner).
 
 ### M5: Backend + sync + invite links
-Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr/0004-sync-model.md).
+Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr/0004-sync-model.md), [ADR 0005](adr/0005-store-op-log.md).
 - [x] Sync model: `dibill-sync` (op ids, Lamport clock, LWW registers per field, permanent tombstones, in-memory reference replica, convergence property tests) + ADR 0004. ([#46](https://github.com/carlosbelop/DiBillSion/pull/46))
-- [ ] Op-log in `dibill-store`: every local write also records its op (device id + persisted clock); applying remote ops updates rows by the same rule; tested against the reference replica. Members referenced by synced transactions are only deactivated.
+- [x] Op log in `dibill-store` (schema v2, [ADR 0005](adr/0005-store-op-log.md)): every write records ops and rows are rebuilt from them; remote ops in any order; pending/pushed bookkeeping; backfill of existing installs. Property test: three stores converge and match the reference replica. ([#48](https://github.com/carlosbelop/DiBillSion/pull/48))
 - [ ] Wire format and API ADR (ops push/pull with per-group cursor, auth, invites); shared wire types crate.
 - [ ] `dibill-server` skeleton: axum + PostgreSQL (sqlx migrations), health check, op push/pull relay; integration tests against a Postgres service in CI.
 - [ ] Auth: anonymous device accounts first (SPEC: works without an account), tokens; sign-in later.

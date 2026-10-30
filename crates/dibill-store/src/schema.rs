@@ -60,13 +60,42 @@ const MIGRATIONS: &[&str] = &[
     ) STRICT;
     CREATE INDEX item_shares_member ON item_shares (member_id);
     ",
+    // 2: sync op log (ADR 0005). The tables above become a projection of it.
+    "
+    ALTER TABLE members ADD COLUMN deleted_at INTEGER;
+
+    CREATE TABLE sync_device (
+        id      BLOB PRIMARY KEY NOT NULL,
+        lamport INTEGER NOT NULL
+    ) STRICT;
+
+    CREATE TABLE ops (
+        id        BLOB PRIMARY KEY NOT NULL,
+        group_id  BLOB NOT NULL,
+        lamport   INTEGER NOT NULL,
+        device    BLOB NOT NULL,
+        entity    TEXT NOT NULL CHECK (entity IN ('group', 'member', 'transaction')),
+        entity_id BLOB NOT NULL,
+        field     TEXT,
+        value     TEXT,
+        pushed    INTEGER NOT NULL DEFAULT 0,
+        CHECK ((field IS NULL) = (value IS NULL))
+    ) STRICT;
+    CREATE INDEX ops_entity ON ops (group_id, entity, entity_id);
+    CREATE INDEX ops_unpushed ON ops (lamport) WHERE pushed = 0;
+    ",
 ];
 
 /// Brings the schema up to date in one transaction.
 pub(crate) fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
+    migrate_to(conn, MIGRATIONS.len())
+}
+
+/// Runs migrations up to `target` (inclusive, 1-based). Tests use it to build old databases.
+pub(crate) fn migrate_to(conn: &mut Connection, target: usize) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
     let current: u32 = tx.pragma_query_value(None, "user_version", |r| r.get(0))?;
-    for (version, sql) in (1..).zip(MIGRATIONS).skip(current as usize) {
+    for (version, sql) in (1..).zip(&MIGRATIONS[..target]).skip(current as usize) {
         tx.execute_batch(sql)?;
         tx.pragma_update(None, "user_version", version)?;
     }
