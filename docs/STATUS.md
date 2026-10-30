@@ -3,7 +3,7 @@
 > Living document. Every session reads it first and updates it in the same PR as the work it describes.
 > Milestones are defined in [PLAN.md §4](PLAN.md).
 
-Last updated: 2026-10-30 (session 3)
+Last updated: 2026-10-30 (end of session 3)
 
 ## Where we are
 
@@ -17,6 +17,18 @@ Last updated: 2026-10-30 (session 3)
 - Study input: `_study/apk/tricount-base.apk`. Package `com.tribab.tricount.android`, v14.5.0 (versionCode 500004150), minSdk 32, targetSdk 37, single APK, 296 MB, sha256 `19d9dbb08353708d4f698752011c334fbdc669cef2f4b9918e3701ce62336edb`.
 - Study notes (local only): `_study/notes/01-triage.md`, `02-features.md`, `03-behavior.md`. REA's resource decoder caps at 2,000 strings, so full string tables were decoded with local Apktool into `_study/decoded/`.
 - `dibill-domain`: ISO 4217 `Currency` + decimal FX (`convert`, `convert_items`, ADR 0002), line-item expenses, transfers in balances, criterion baseline ([BENCHMARKS.md](BENCHMARKS.md)).
+
+## Next sessions (from 2026-10-31), in order — see PLAN §4.2
+
+1. **P0 public-repo prep** (one issue/PR). Remove references and hints to the studied third-party app from tracked files only:
+   - `docs/PLAN.md` (§1.2 study tools, §2 study track, name mentions), `docs/STATUS.md` (M1 study items, package id, APK hash), `docs/SPEC.md` ("studied app" wording → plain spec), `CLAUDE.md` (hard rule 1, REA lines), `README.md`, `scripts/setup-ubuntu.sh` (REA/JADX/Apktool), `.claude/settings.json` (REA permissions), `.github/workflows/ci.yml` + PR template (study guard → generic "no binaries/secrets" guard), `.gitignore`/`.dockerignore` (`_study` lines).
+   - False positive to keep: `std::hint::black_box` in `crates/dibill-domain/benches/domain.rs`.
+   - Edit GitHub texts that can be edited (PR #3 body; check the other issues and PRs). Commit messages and history stay.
+   - Move the local `_study/` folder outside the repo before publishing (it is git-ignored, never committed).
+   - Then the owner switches the repo to public (owner action).
+2. **M4 iOS → TestFlight** (several PRs): macOS CI job (XCFramework + UniFFI Swift bindings), SwiftUI app for the flat use case, signing/upload with an App Store Connect API key from GitHub secrets, internal testers.
+3. **B1 Pi** (weekend, when the owner turns the Pi on): 64-bit OS + Docker, `deploy/deploy.sh`, Tailscale Funnel URL → release `SYNC_URL`; then B2 Android beta build.
+4. M7a receipt evaluation.
 
 ## Backlog (in order)
 
@@ -106,11 +118,13 @@ The dev password is local-only; never reuse it for a hosted database.
 - `main` isn't protected by GitHub (free plan, private repo). The PR workflow is self-enforced, and `.claude/settings.json` denies direct pushes to `main`.
 
 ## Needs the owner (open requests)
-- **Beta hosting decision** (blocks B1 deploy): Raspberry Pi 4B at home (≈€0/month + electricity) or a small ARM VPS (Hetzner CAX11 ≈€4.5–5/month after the 2026 price changes). For the Pi: SSD instead of SD card if possible, and either Tailscale Funnel (free HTTPS URL, no domain) or Cloudflare Tunnel (needs a domain on Cloudflare).
+- **Apple Developer Program**: enrolling 2026-10-31 (individual). Then create an App Store Connect API key (Issuer ID, Key ID, `.p8`) with App Manager access and add it as GitHub Actions secrets; send the flatmates' Apple ID emails for internal TestFlight testing.
+- **Make the repo public** after the P0 cleanup PR is merged (Settings → General → Danger zone → Change visibility).
+- **Raspberry Pi** this weekend: say when it's on; 64-bit Raspberry Pi OS, SSH key, Docker, Tailscale.
+- **Beta hosting**: decided 2026-10-30, Raspberry Pi 4B with Tailscale Funnel (an SSD instead of the SD card if possible). A VPS (Hetzner CAX11 ≈€4.5–5/month) stays the fallback.
 - **Domain / name**: autosplit.com is registered (since 2003, renewed to 2027; no website). Free alternatives checked on 2026-10-30: autosplit.app, getautosplit.com, autosplitapp.com, dibillsion.com, dibillsion.app. Using "AutoSplit" would also be a rename (branding), and the name is used by an existing open-source speedrunning tool: worth a trademark check.
 - **VLM API access** (blocks M7a runs, not the harness): keys for OpenRouter and/or Google AI Studio / OpenAI with a few euros of credit; Spanish receipt photos for the evaluation set.
 - **Android beta distribution**: APK sideload (free) or Play internal testing ($25 one-time account); a release signing key kept by you.
-- **iOS**: Apple Developer Program ($99/year) is needed for any real iPhone; how many testers use iPhone decides when M4 starts.
 - **App name, `applicationId` and icon** (needed before M8): keeping DiBillSion and the current icon for now (owner, 2026-10-30); tell me when you have the final ones.
 - **UI direction:** the redesign is original (clean-room rule). Point out on the phone what you'd like different and I'll iterate.
 - **Second device (optional)**: an Android emulator (Android Studio on Windows) or a second phone with USB/wireless debugging, for the two-real-device check.
