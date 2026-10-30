@@ -282,6 +282,29 @@ provider. iOS last: it is the most expensive (Apple account, macOS CI minutes, n
 simulator) and only pays off once the product is validated on Android.
 
 
+### 4.2 Priority change (2026-10-30): iOS first
+
+The owner moves into a shared flat on 2026-11-02 and both flatmates use iPhone. New order:
+
+1. **Public-repo prep (P0).** The owner will make this repo public so macOS CI runners are free.
+   Before that, the *current files* lose every reference or hint to the third-party app that was
+   studied (names, package ids, study plan, reverse-engineering tooling). Git history, commit
+   messages and old file versions stay as they are. The owner changes the visibility himself.
+2. **M4 iOS → TestFlight internal testing.** The owner enrols in the Apple Developer Program
+   (individual, $99/year) on 2026-10-31. Flatmates are added as internal testers (no beta review),
+   so a build reaches them minutes after upload. First version = what a shared flat needs: groups,
+   people, add expense (equal split), balances + "you owe / you are owed" + settle, join with an
+   invite, who am I, pull-to-refresh sync.
+3. **B1 beta server on the Raspberry Pi** this weekend (deploy kit in `deploy/`), exposed with
+   Tailscale Funnel; then the Android release build points at it (B2).
+4. M7a/M7b receipt scanning after that, as in §4.1.
+
+Meanwhile the group starts on the owner's Android phone (offline works); the flatmates join with
+an invite once the iOS build is out and pick their own placeholder member, keeping all history.
+
+Later, the owner plans a fresh repository written from scratch with no third-party app involved.
+
+### Store prerequisites
 - Google Play Console account (one-time US$25) and Apple Developer Program (US$99/year).
 - Privacy policy URL, Play *Data safety* form, Apple *privacy nutrition labels*. Receipt images sent to a cloud VLM must be declared.
 - If you add Google sign-in, Apple requires Sign in with Apple too (or another privacy-preserving login option).
