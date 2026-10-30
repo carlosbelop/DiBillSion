@@ -262,7 +262,26 @@ Splitting by **items** isn't something you bolt on later. It's the core shape, a
 | M7 | **Receipt scanning** | Camera → upload → VLM → editable item list → per-item assignment |
 | M8 | Store release | Play: closed testing track (new personal accounts need 12 testers for 14 days), then production. Apple: TestFlight, then review |
 
-### Store prerequisites
+### 4.1 Order from 2026-10-30 (owner: test with friends, then receipts, then iOS)
+
+M3 and M5 are done in code. The owner wants friends testing as soon as possible, then receipt
+scanning, then iOS. The order below follows dependencies and what is blocked on whom:
+
+| Phase | What | Depends on | Exit criteria |
+|---|---|---|---|
+| **B1 Beta server** | Production setup of `dibill-server` (ARM64 container, PostgreSQL, backups, rate limits, logs) on the owner's Raspberry Pi 4B or a small VPS, exposed over HTTPS | Owner: hosting choice, Pi set up | Phones outside the home network sync through it |
+| **B2 Android beta** | Release build pointing at the beta server, signed with a beta key kept by the owner, handed to friends (APK or Play internal testing) | B1; owner: distribution choice | Friends install it, share a group, sync |
+| **M7a VLM evaluation** | Receipt schema (Rust types → JSON Schema), evaluation set with our own ground truth, a Rust harness that runs many models with structured output and scores accuracy, cost and latency | Owner: API keys/credits; nothing else (starts in parallel with B1) | A report that names the cheapest model meeting the bar |
+| **M7b Scan in the app** | Server endpoint (image → VLM → validated items), per-device credits/limits paid by the owner, Android camera + review + per-item assignment | M7a, B1 | A friend scans a real receipt and splits it by item |
+| **M4 iOS** | SwiftUI shell on the same core, built and tested on macOS CI runners (no Mac needed); TestFlight for iPhone friends | Owner: Apple Developer Program ($99/yr) for any install on a real iPhone | Same features as Android on TestFlight |
+| M6, M8 | Polish, store release | as before | as before |
+
+Why this order: B1/B2 put the finished sync in friends' hands now and give real feedback (and
+real receipts for M7). M7a needs no server and runs in parallel; its result decides M7b's
+provider. iOS last: it is the most expensive (Apple account, macOS CI minutes, no local
+simulator) and only pays off once the product is validated on Android.
+
+
 - Google Play Console account (one-time US$25) and Apple Developer Program (US$99/year).
 - Privacy policy URL, Play *Data safety* form, Apple *privacy nutrition labels*. Receipt images sent to a cloud VLM must be declared.
 - If you add Google sign-in, Apple requires Sign in with Apple too (or another privacy-preserving login option).

@@ -64,8 +64,30 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 - [x] Android: `HttpURLConnection` transport, server URL per build type (debug `http://127.0.0.1:8080` via `adb reverse`, cleartext only to localhost in debug; release empty until hosting), "Invitar" (shares the group, then the share sheet with the link and code), turn the link off, "Unirse" with a pasted link/code or a `dibillsion://join/<code>` link, sync on open, pull-to-refresh and after every edit (background, quiet when offline), "Compartido" on cards and header. Checked on the Pixel against a local server, with a second device simulated over HTTP. ([#62](https://github.com/carlosbelop/DiBillSion/pull/62))
 - [ ] Two real devices converging (Pixel + emulator or a second phone) against the local server. The phone ↔ server ↔ second device path already works with the second device simulated over HTTP (PR #62), and two real stores converge through the real server in CI (PR #58).
 
+### Friends beta (PLAN §4.1: B1, B2)
+- [ ] Deploy kit: multi-arch (ARM64) container for `dibill-server`, `compose.yaml` with PostgreSQL 17, nightly `pg_dump` backups, health check, HTTPS exposure guide (Tailscale Funnel or Cloudflare Tunnel; no open router ports).
+- [ ] Server hardening for the public internet: rate limits (device registration per IP, pushes per device), request logging without bodies, CORS off, metrics/health.
+- [ ] Deploy to the beta host (owner: Raspberry Pi set up or VPS account) and point a release build at it.
+- [ ] Android beta build: release signing with an owner-held key (never in git), `SYNC_URL` = beta server, versioning, distribution (owner: APK sideload or Play internal testing).
+
+### M7a: VLM receipt evaluation (starts in parallel)
+- [ ] ADR 0008: structured output approach (provider JSON-Schema modes, schema from Rust types, semantic validation and one repair retry in Rust).
+- [ ] Receipt schema (`dibill-receipt`): merchant, date, currency, items (label, qty, unit, line total, discounts), tax, tip, total; JSON Schema generated from the Rust types; validation (items + adjustments = total, to the cent).
+- [ ] Evaluation set: ~100 receipts. CORD v2 test split (CC BY 4.0) plus Spanish receipts from the owner and friends (personal data removed). Ground truth written by us, checked by the owner on a sample. Images stay out of git; ground truth and a download script are versioned.
+- [ ] Rust harness: OpenAI-compatible client (OpenRouter for breadth) + native Gemini; per-model accuracy (total exact, items exact, schema-valid rate), cost per receipt, latency p50/p95; markdown report.
+- [ ] Run candidates (owner: API keys / a few euros of credit) and pick the cheapest model over the bar.
+
+### M7b: scanning in the app
+- [ ] Server: `POST /v1/receipts` (downscaled image → model → validated items), provider key only on the server, per-device credits and daily limits, global monthly budget cap.
+- [ ] Android: camera/gallery, downscale (~1600 px JPEG), progress, editable item list, assign people per item, save as one multi-item expense.
+
+### M4: iOS (no Mac needed for building)
+- [ ] macOS CI job: XCFramework of `dibill-core`, Swift bindings, SwiftUI app build, unit tests and simulator screenshots as artifacts.
+- [ ] SwiftUI screens at parity with Android.
+- [ ] TestFlight (owner: Apple Developer Program, $99/year).
+
 ### Later
-M4 iOS (needs macOS) · M6 polish · M7 receipt scanning (VLM) · M8 store release. See PLAN §4.
+M6 polish · M8 store release. See PLAN §4.
 
 ## Dev server (local)
 
@@ -84,9 +106,12 @@ The dev password is local-only; never reuse it for a hosted database.
 - `main` isn't protected by GitHub (free plan, private repo). The PR workflow is self-enforced, and `.claude/settings.json` denies direct pushes to `main`.
 
 ## Needs the owner (open requests)
+- **Beta hosting decision** (blocks B1 deploy): Raspberry Pi 4B at home (≈€0/month + electricity) or a small ARM VPS (Hetzner CAX11 ≈€4.5–5/month after the 2026 price changes). For the Pi: SSD instead of SD card if possible, and either Tailscale Funnel (free HTTPS URL, no domain) or Cloudflare Tunnel (needs a domain on Cloudflare).
+- **Domain / name**: autosplit.com is registered (since 2003, renewed to 2027; no website). Free alternatives checked on 2026-10-30: autosplit.app, getautosplit.com, autosplitapp.com, dibillsion.com, dibillsion.app. Using "AutoSplit" would also be a rename (branding), and the name is used by an existing open-source speedrunning tool: worth a trademark check.
+- **VLM API access** (blocks M7a runs, not the harness): keys for OpenRouter and/or Google AI Studio / OpenAI with a few euros of credit; Spanish receipt photos for the evaluation set.
+- **Android beta distribution**: APK sideload (free) or Play internal testing ($25 one-time account); a release signing key kept by you.
+- **iOS**: Apple Developer Program ($99/year) is needed for any real iPhone; how many testers use iPhone decides when M4 starts.
 - **App name, `applicationId` and icon** (needed before M8): keeping DiBillSion and the current icon for now (owner, 2026-10-30); tell me when you have the final ones.
 - **UI direction:** the redesign is original (clean-room rule). Point out on the phone what you'd like different and I'll iterate.
-- **M4 (iOS)** needs a Mac (Xcode); start it when you have one available.
-- **Hosting for the sync server** (now the only thing between sync and real use): sync works today only with the phone tethered to this computer (`adb reverse`). For friends' phones we need a public HTTPS host for `dibill-server` + PostgreSQL (costs money, needs your account) and, for nice invite links, a domain. Tell me the provider/budget and I'll write the deploy config.
 - **Second device (optional)**: an Android emulator (Android Studio on Windows) or a second phone with USB/wireless debugging, for the two-real-device check.
 
