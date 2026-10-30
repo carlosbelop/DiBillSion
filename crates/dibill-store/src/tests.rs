@@ -342,6 +342,35 @@ fn who_am_i_is_per_group_and_local() {
     t.store.set_me(t.group, None).unwrap();
 }
 
+#[test]
+fn sync_client_state() {
+    let t = trip();
+    assert_eq!(t.store.sync_token().unwrap(), None);
+    t.store.set_sync_token("secret").unwrap();
+    assert_eq!(t.store.sync_token().unwrap().as_deref(), Some("secret"));
+
+    assert!(!t.store.is_shared(t.group).unwrap());
+    assert!(matches!(
+        t.store.set_cursor(t.group, 5),
+        Err(StoreError::NotFound)
+    ));
+    t.store.mark_shared(t.group).unwrap();
+    t.store.mark_shared(t.group).unwrap();
+    assert_eq!(t.store.shared_groups().unwrap(), vec![(t.group, 0)]);
+    t.store.set_cursor(t.group, 42).unwrap();
+    assert_eq!(t.store.shared_groups().unwrap(), vec![(t.group, 42)]);
+
+    // Pending ops can be read per group.
+    let other = t
+        .store
+        .create_group("Other", None, GroupKind::Other, eur())
+        .unwrap();
+    let mine = t.store.pending_group_ops(t.group, 1000).unwrap();
+    assert_eq!(mine.len(), 10);
+    assert!(mine.iter().all(|op| op.group == t.group));
+    assert_eq!(t.store.pending_group_ops(other, 1000).unwrap().len(), 4);
+}
+
 mod sync {
     use proptest::prelude::*;
 

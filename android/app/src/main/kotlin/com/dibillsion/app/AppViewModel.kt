@@ -240,6 +240,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             is CoreException.InvalidSplit -> R.string.err_invalid_split
             is CoreException.InvalidInput -> R.string.err_invalid_input
             is CoreException.Storage -> R.string.err_storage
+            is CoreException.Offline -> R.string.err_offline
+            is CoreException.Server -> when (e.code) {
+                "not_found" -> R.string.err_invite_invalid
+                "forbidden" -> R.string.err_forbidden
+                else -> R.string.err_server
+            }
         }
         Log.w("DiBillSion", "core error", e)
         return app.getString(res)

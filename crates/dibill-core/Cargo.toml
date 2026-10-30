@@ -20,7 +20,10 @@ bindgen = ["uniffi/cli"]
 
 [dependencies]
 dibill-domain.workspace = true
+dibill-proto.workspace = true
 dibill-store.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 uniffi.workspace = true
 uuid.workspace = true

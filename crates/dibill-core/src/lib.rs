@@ -22,6 +22,10 @@ use uuid::Uuid;
 
 pub use dibill_domain as domain;
 
+mod sync;
+
+pub use sync::{HttpRequest, HttpResponse, HttpTransport, SyncSummary, TransportError};
+
 uniffi::setup_scaffolding!();
 
 /// Version string shown in the app's "About" screen.
@@ -80,6 +84,13 @@ pub enum CoreError {
     InvalidInput { reason: String },
     #[error("storage error: {reason}")]
     Storage { reason: String },
+    /// The server couldn't be reached. Local changes stay queued.
+    #[error("offline: {reason}")]
+    Offline { reason: String },
+    /// The server answered with an error; `code` is its stable error code
+    /// (`unauthorized`, `forbidden`, `not_found`, ...).
+    #[error("server error {code}: {reason}")]
+    Server { code: String, reason: String },
 }
 
 impl From<StoreError> for CoreError {

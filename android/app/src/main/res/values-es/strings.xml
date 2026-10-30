@@ -104,4 +104,8 @@
     <string name="you_pay">Pagas a %1$s</string>
     <string name="pays_you">%1$s te paga</string>
     <string name="other_payments">Otros pagos</string>
+    <string name="err_offline">Sin conexión. Tus cambios están guardados en este móvil y se sincronizarán más tarde.</string>
+    <string name="err_server">El servidor no ha podido atenderlo ahora. Inténtalo de nuevo en un momento.</string>
+    <string name="err_invite_invalid">Ese enlace de invitación ya no es válido. Pide uno nuevo.</string>
+    <string name="err_forbidden">Solo quien compartió este grupo puede hacer eso.</string>
 </resources>

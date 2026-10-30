@@ -91,6 +91,16 @@ const MIGRATIONS: &[&str] = &[
         me        BLOB REFERENCES members (id) ON DELETE SET NULL
     ) STRICT;
     ",
+    // 4: sync client state (ADR 0007). No foreign key to groups: a joined group
+    // only appears once its ops have been pulled.
+    "
+    ALTER TABLE sync_device ADD COLUMN token TEXT;
+
+    CREATE TABLE group_sync (
+        group_id BLOB PRIMARY KEY NOT NULL,
+        cursor   INTEGER NOT NULL DEFAULT 0 CHECK (cursor >= 0)
+    ) STRICT;
+    ",
 ];
 
 /// Brings the schema up to date in one transaction.

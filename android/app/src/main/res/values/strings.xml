@@ -105,4 +105,8 @@
     <string name="you_pay">You pay %1$s</string>
     <string name="pays_you">%1$s pays you</string>
     <string name="other_payments">Other payments</string>
+    <string name="err_offline">No connection. Your changes are saved on this phone and will sync later.</string>
+    <string name="err_server">The server couldn’t handle that right now. Try again in a moment.</string>
+    <string name="err_invite_invalid">That invite link isn’t valid any more. Ask for a new one.</string>
+    <string name="err_forbidden">Only the person who shared this group can do that.</string>
 </resources>
