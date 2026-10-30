@@ -1,6 +1,13 @@
 package com.dibillsion.app.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +22,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,9 +32,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -33,10 +44,10 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
@@ -47,11 +58,12 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -65,28 +77,54 @@ import com.dibillsion.app.AppViewModel
 import com.dibillsion.app.GroupDetail
 import com.dibillsion.app.Money
 import com.dibillsion.app.R
+import com.dibillsion.app.UiState
 import com.dibillsion.core.MemberDto
 import com.dibillsion.core.SuggestionDto
 import com.dibillsion.core.TransactionDto
 import com.dibillsion.core.TransactionKindDto
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlin.math.abs
 
+private val Tabs = listOf(R.string.tab_expenses, R.string.tab_balances, R.string.tab_people)
+
+@Composable
+fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
+    var adding by rememberSaveable { mutableStateOf(false) }
+    // The expense editor rises from the bottom and sinks back when closed.
+    AnimatedContent(
+        targetState = adding,
+        transitionSpec = {
+            if (targetState) {
+                (slideInVertically { it / 4 } + fadeIn()).togetherWith(fadeOut())
+            } else {
+                fadeIn().togetherWith(slideOutVertically { it / 4 } + fadeOut())
+            }
+        },
+        label = "editor",
+    ) { editing ->
+        if (editing) {
+            AddExpenseScreen(d, vm, onDone = { adding = false })
+        } else {
+            GroupBody(d, state, vm, onAdd = { adding = true })
+        }
+    }
+    ErrorDialog(state.error, vm::dismissError)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GroupScreen(d: GroupDetail, error: String?, vm: AppViewModel) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
-    var adding by rememberSaveable { mutableStateOf(false) }
+private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: () -> Unit) {
+    val pager = rememberPagerState { Tabs.size }
+    val scope = rememberCoroutineScope()
     var addingPerson by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var deletingGroup by remember { mutableStateOf(false) }
-    if (adding) {
-        AddExpenseScreen(d, vm, onDone = { adding = false })
-        ErrorDialog(error, vm::dismissError)
-        return
-    }
+    // Ask once per visit when nobody is "me" yet; it can be changed from the menu.
+    var pickingMe by rememberSaveable(d.group.id) { mutableStateOf(d.meId == null && d.members.isNotEmpty()) }
+
     if (deletingGroup) {
         ConfirmDialog(
             title = stringResource(R.string.delete_group_title, d.group.name),
@@ -97,6 +135,9 @@ fun GroupScreen(d: GroupDetail, error: String?, vm: AppViewModel) {
         )
     }
     if (addingPerson) AddPersonDialog(onAdd = vm::addMember, onDismiss = { addingPerson = false })
+    if (pickingMe) {
+        WhoAmIDialog(d, onPick = { vm.setMe(it) }, onDismiss = { pickingMe = false })
+    }
 
     Scaffold(
         topBar = {
@@ -123,6 +164,14 @@ fun GroupScreen(d: GroupDetail, error: String?, vm: AppViewModel) {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more)) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
+                            text = { Text(stringResource(R.string.change_me)) },
+                            leadingIcon = { Icon(Icons.Filled.Face, null) },
+                            onClick = {
+                                menu = false
+                                pickingMe = true
+                            },
+                        )
+                        DropdownMenuItem(
                             text = { Text(stringResource(if (d.group.archived) R.string.restore_group else R.string.archive_group)) },
                             onClick = {
                                 menu = false
@@ -142,9 +191,9 @@ fun GroupScreen(d: GroupDetail, error: String?, vm: AppViewModel) {
             )
         },
         floatingActionButton = {
-            when (tab) {
+            when (pager.currentPage) {
                 0 -> ExtendedFloatingActionButton(
-                    onClick = { adding = true },
+                    onClick = onAdd,
                     icon = { Icon(Icons.Filled.Add, null) },
                     text = { Text(stringResource(R.string.add_expense)) },
                 )
@@ -157,20 +206,67 @@ fun GroupScreen(d: GroupDetail, error: String?, vm: AppViewModel) {
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            PrimaryTabRow(selectedTabIndex = tab) {
-                listOf(R.string.tab_expenses, R.string.tab_balances, R.string.tab_people).forEachIndexed { i, label ->
-                    Tab(selected = tab == i, onClick = { tab = i }, text = { Text(stringResource(label)) })
+            PrimaryTabRow(selectedTabIndex = pager.currentPage) {
+                Tabs.forEachIndexed { i, label ->
+                    Tab(
+                        selected = pager.currentPage == i,
+                        onClick = { scope.launch { pager.animateScrollToPage(i) } },
+                        text = { Text(stringResource(label)) },
+                    )
                 }
             }
-            when (tab) {
-                0 -> Transactions(d, vm, onAdd = { adding = true })
-                1 -> Balances(d, vm)
-                else -> People(d, vm)
+            // Tabs can also be swiped; every page pulls down to refresh.
+            HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
+                PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
+                    when (page) {
+                        0 -> Transactions(d, vm, onAdd)
+                        1 -> Balances(d, vm, onPickMe = { pickingMe = true })
+                        else -> People(d, vm)
+                    }
+                }
             }
         }
     }
-    ErrorDialog(error, vm::dismissError)
 }
+
+@Composable
+private fun WhoAmIDialog(d: GroupDetail, onPick: (String?) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Filled.Face, null) },
+        title = { Text(stringResource(R.string.who_are_you)) },
+        text = {
+            Column {
+                Text(
+                    stringResource(R.string.who_are_you_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 12.dp),
+                )
+                d.members.forEach { m ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small)
+                            .clickable {
+                                onPick(m.id)
+                                onDismiss()
+                            }
+                            .padding(vertical = 10.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Avatar(initials(m.displayName), m.id, size = 36.dp)
+                        Text(m.displayName, Modifier.padding(start = 12.dp).weight(1f), style = MaterialTheme.typography.bodyLarge)
+                        if (m.id == d.meId) Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.not_now)) } },
+    )
+}
+
+/** A member's name, marked when it is the person using this device. */
+@Composable
+private fun shownName(d: GroupDetail, id: String, name: String): String =
+    if (id == d.meId) stringResource(R.string.me_suffix, name) else name
 
 @Composable
 private fun Transactions(d: GroupDetail, vm: AppViewModel, onAdd: () -> Unit) {
@@ -183,22 +279,26 @@ private fun Transactions(d: GroupDetail, vm: AppViewModel, onAdd: () -> Unit) {
             onDismiss = { deleting = null },
         )
     }
-    if (d.transactions.isEmpty()) {
-        EmptyState(
-            emoji = "🪙",
-            title = stringResource(R.string.expenses_empty_title),
-            body = stringResource(R.string.expenses_empty),
-            action = stringResource(R.string.add_expense),
-            onAction = onAdd,
-        )
-        return
-    }
     val byDay = d.transactions.groupBy { it.dateDays }
-    LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
-        item { SpendingSummary(d) }
+    LazyColumn(Modifier.fillMaxSize().bottomBounce(), contentPadding = PaddingValues(bottom = 96.dp)) {
+        if (d.transactions.isEmpty()) {
+            item(key = "empty") {
+                EmptyState(
+                    emoji = "🪙",
+                    title = stringResource(R.string.expenses_empty_title),
+                    body = stringResource(R.string.expenses_empty),
+                    action = stringResource(R.string.add_expense),
+                    onAction = onAdd,
+                )
+            }
+            return@LazyColumn
+        }
+        item(key = "summary") { SpendingSummary(d) }
         byDay.forEach { (day, list) ->
-            item(key = "day-$day") { SectionHeader(dayLabel(day)) }
-            items(list, key = { it.id ?: "" }) { t -> TransactionRow(d, t, vm, onDelete = { deleting = t }) }
+            item(key = "day-$day") { SectionHeader(dayLabel(day), Modifier.animateItem()) }
+            items(list, key = { it.id ?: "" }) { t ->
+                TransactionRow(d, t, vm, Modifier.animateItem(), onDelete = { deleting = t })
+            }
         }
     }
 }
@@ -230,7 +330,7 @@ private fun SpendingSummary(d: GroupDetail) {
 }
 
 @Composable
-private fun TransactionRow(d: GroupDetail, t: TransactionDto, vm: AppViewModel, onDelete: () -> Unit) {
+private fun TransactionRow(d: GroupDetail, t: TransactionDto, vm: AppViewModel, modifier: Modifier, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val icon = when (t.kind) {
         TransactionKindDto.EXPENSE -> Icons.Filled.ShoppingCart
@@ -238,6 +338,7 @@ private fun TransactionRow(d: GroupDetail, t: TransactionDto, vm: AppViewModel, 
         TransactionKindDto.TRANSFER -> Icons.AutoMirrored.Filled.ArrowForward
     }
     ListItem(
+        modifier = modifier,
         leadingContent = { IconBadge(icon) },
         headlineContent = { Text(headline(d, t)) },
         supportingContent = subtitle(d, t)?.let { { Text(it) } },
@@ -302,7 +403,7 @@ private fun subtitle(d: GroupDetail, t: TransactionDto): String? = when (t.kind)
 }
 
 @Composable
-private fun Balances(d: GroupDetail, vm: AppViewModel) {
+private fun Balances(d: GroupDetail, vm: AppViewModel, onPickMe: () -> Unit) {
     val b = d.balances
     var paying by remember { mutableStateOf<SuggestionDto?>(null) }
     paying?.let { s ->
@@ -315,14 +416,21 @@ private fun Balances(d: GroupDetail, vm: AppViewModel) {
             onDismiss = { paying = null },
         )
     }
+    val (mine, others) = b.suggestions.partition { d.meId != null && (it.fromId == d.meId || it.toId == d.meId) }
     val largest = b.balances.maxOfOrNull { abs(it.amountMinor) }?.takeIf { it > 0 } ?: 1L
-    LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
-        item { SectionHeader(stringResource(R.string.balances_header)) }
+    LazyColumn(Modifier.fillMaxSize().bottomBounce(), contentPadding = PaddingValues(bottom = 32.dp)) {
+        item(key = "me") { MyBalanceCard(d, mine, onPay = { paying = it }, onPickMe = onPickMe) }
+        item(key = "balances-header") { SectionHeader(stringResource(R.string.balances_header)) }
         items(b.balances, key = { it.memberId }) { m ->
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Column(Modifier.animateItem().padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Avatar(initials(m.displayName), m.memberId, size = 32.dp)
-                    Text(m.displayName, Modifier.padding(start = 12.dp).weight(1f), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        shownName(d, m.memberId, m.displayName),
+                        Modifier.padding(start = 12.dp).weight(1f),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (m.memberId == d.meId) FontWeight.SemiBold else null,
+                    )
                     Text(
                         Money.format(m.amountMinor, d.exponent, b.currency),
                         style = MaterialTheme.typography.titleSmall,
@@ -332,40 +440,106 @@ private fun Balances(d: GroupDetail, vm: AppViewModel) {
                 BalanceBar(m.amountMinor.toFloat() / largest, Modifier.padding(top = 8.dp))
             }
         }
-        item {
-            SectionHeader(stringResource(R.string.suggested))
-            if (b.suggestions.isEmpty()) {
-                Row(
-                    Modifier.padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
-                    Text(stringResource(R.string.balances_settled))
+        if (others.isNotEmpty() || b.suggestions.isEmpty()) {
+            item(key = "others-header") {
+                SectionHeader(stringResource(if (d.meId == null) R.string.suggested else R.string.other_payments))
+                if (b.suggestions.isEmpty()) {
+                    Row(
+                        Modifier.padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.balances_settled))
+                    }
                 }
             }
         }
-        items(b.suggestions, key = { it.fromId + it.toId }) { s ->
-            OutlinedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(initials(s.fromName), s.fromId, size = 36.dp)
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowForward, null,
-                        Modifier.padding(horizontal = 4.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Avatar(initials(s.toName), s.toId, size = 36.dp)
+        items(others, key = { it.fromId + it.toId }) { s ->
+            SuggestionCard(d, s, Modifier.animateItem(), onPay = { paying = s })
+        }
+    }
+}
+
+/** Where I stand at a glance: my balance and the payments that involve me. */
+@Composable
+private fun MyBalanceCard(d: GroupDetail, mine: List<SuggestionDto>, onPay: (SuggestionDto) -> Unit, onPickMe: () -> Unit) {
+    val meId = d.meId
+    if (meId == null) {
+        OutlinedCard(Modifier.fillMaxWidth().padding(16.dp)) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.pick_me_hint), style = MaterialTheme.typography.bodyLarge)
+                Button(onClick = onPickMe) { Text(stringResource(R.string.who_are_you)) }
+            }
+        }
+        return
+    }
+    val balance = d.balances.balances.firstOrNull { it.memberId == meId }?.amountMinor ?: 0L
+    val (container, content) = when {
+        balance < 0 -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+        balance > 0 -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurface
+    }
+    val currency = d.balances.currency
+    Card(
+        Modifier.fillMaxWidth().padding(16.dp),
+        colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Text(stringResource(R.string.your_balance), style = MaterialTheme.typography.labelLarge)
+            Text(
+                when {
+                    balance < 0 -> stringResource(R.string.you_owe, Money.format(-balance, d.exponent, currency))
+                    balance > 0 -> stringResource(R.string.you_are_owed, Money.format(balance, d.exponent, currency))
+                    else -> stringResource(R.string.you_are_square)
+                },
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 4.dp, bottom = if (mine.isEmpty()) 0.dp else 8.dp),
+            )
+            mine.forEachIndexed { i, s ->
+                if (i > 0) HorizontalDivider(color = content.copy(alpha = 0.2f))
+                val iPay = s.fromId == meId
+                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(initials(if (iPay) s.toName else s.fromName), if (iPay) s.toId else s.fromId, size = 36.dp)
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                        Text(stringResource(R.string.pays, s.fromName, s.toName), style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            Money.format(s.amountMinor, d.exponent, b.currency),
+                            stringResource(if (iPay) R.string.you_pay else R.string.pays_you, if (iPay) s.toName else s.fromName),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            Money.format(s.amountMinor, d.exponent, currency),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
-                    FilledTonalButton(onClick = { paying = s }) { Text(stringResource(R.string.settle)) }
+                    FilledTonalButton(onClick = { onPay(s) }) { Text(stringResource(R.string.settle)) }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SuggestionCard(d: GroupDetail, s: SuggestionDto, modifier: Modifier, onPay: () -> Unit) {
+    OutlinedCard(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Avatar(initials(s.fromName), s.fromId, size = 36.dp)
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward, null,
+                Modifier.padding(horizontal = 4.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Avatar(initials(s.toName), s.toId, size = 36.dp)
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text(stringResource(R.string.pays, s.fromName, s.toName), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    Money.format(s.amountMinor, d.exponent, d.balances.currency),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            FilledTonalButton(onClick = onPay) { Text(stringResource(R.string.settle)) }
         }
     }
 }
@@ -401,11 +575,12 @@ private fun People(d: GroupDetail, vm: AppViewModel) {
             onDismiss = { deleting = null },
         )
     }
-    LazyColumn(contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)) {
+    LazyColumn(Modifier.fillMaxSize().bottomBounce(), contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)) {
         items(d.members, key = { it.id }) { m ->
             ListItem(
+                modifier = Modifier.animateItem(),
                 leadingContent = { Avatar(initials(m.displayName), m.id) },
-                headlineContent = { Text(m.displayName) },
+                headlineContent = { Text(shownName(d, m.id, m.displayName)) },
                 supportingContent = {
                     Text(stringResource(if (m.active) R.string.active else R.string.inactive))
                 },
@@ -415,7 +590,6 @@ private fun People(d: GroupDetail, vm: AppViewModel) {
                         IconButton(onClick = { deleting = m }) { Icon(Icons.Filled.Delete, stringResource(R.string.remove)) }
                     }
                 },
-                colors = ListItemDefaults.colors(),
             )
         }
     }

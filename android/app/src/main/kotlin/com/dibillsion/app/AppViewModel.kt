@@ -17,6 +17,7 @@ import com.dibillsion.core.TransactionKindDto
 import com.dibillsion.core.currencyExponent
 import com.dibillsion.core.previewSplit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +36,9 @@ data class GroupDetail(
     val exponent: Int,
 ) {
     fun name(memberId: String): String = members.firstOrNull { it.id == memberId }?.displayName ?: "?"
+
+    /** Who uses this device in the group, if chosen. */
+    val meId: String? get() = group.meId
 }
 
 data class UiState(
@@ -43,6 +47,7 @@ data class UiState(
     val memberCounts: Map<String, Int> = emptyMap(),
     val detail: GroupDetail? = null,
     val error: String? = null,
+    val refreshing: Boolean = false,
 )
 
 /**
@@ -76,13 +81,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(groups = groups, memberCounts = counts) }
     }
 
-    fun createGroup(name: String, emoji: String?, kind: GroupKindDto, currency: String, people: List<String>) =
+    /** Creates a group; [me] (if given) becomes "who I am" on this device. */
+    fun createGroup(name: String, emoji: String?, kind: GroupKindDto, currency: String, me: String, others: List<String>) =
         launchCore {
             val id = core.createGroup(name.trim(), emoji, kind, currency.trim().uppercase())
-            people.map { it.trim() }.filter { it.isNotEmpty() }.forEach { core.addMember(id, it) }
+            me.trim().takeIf { it.isNotEmpty() }?.let { core.setMe(id, core.addMember(id, it)) }
+            others.map { it.trim() }.filter { it.isNotEmpty() }.forEach { core.addMember(id, it) }
             loadGroups()
             loadDetail(id)
         }
+
+    /** Pull-to-refresh: reloads from the core (and, once sync exists, from the server). */
+    fun refresh() {
+        _state.update { it.copy(refreshing = true) }
+        viewModelScope.launch {
+            // Keep the indicator visible long enough to read as feedback.
+            val minimum = launch { delay(450) }
+            withContext(Dispatchers.IO) {
+                try {
+                    loadGroups()
+                    _state.value.detail?.let { loadDetail(it.group.id) }
+                } catch (e: CoreException) {
+                    _state.update { it.copy(error = describe(e)) }
+                }
+            }
+            minimum.join()
+            _state.update { it.copy(refreshing = false) }
+        }
+    }
+
+    fun setMe(memberId: String?) = inGroup { core.setMe(it.group.id, memberId) }
 
     fun setArchived(archived: Boolean) = inGroup { core.setGroupArchived(it.group.id, archived) }
 
@@ -181,6 +209,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val d = _state.value.detail ?: return@launchCore
         block(d)
         loadDetail(d.group.id)
+        loadGroups() // the cards show my balance
     }
 
     private fun launchCore(block: () -> Unit) {

@@ -127,6 +127,10 @@ pub struct GroupDto {
     pub kind: GroupKindDto,
     pub base_currency: String,
     pub archived: bool,
+    /// The member chosen as "me" on this device, if any.
+    pub me_id: Option<String>,
+    /// My balance in the base currency when "me" is set: positive means I am owed.
+    pub my_balance_minor: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
@@ -244,19 +248,44 @@ impl Core {
     /// # Errors
     /// [`CoreError::Storage`].
     pub fn groups(&self) -> Result<Vec<GroupDto>, CoreError> {
-        Ok(self
-            .store()
+        let store = self.store();
+        store
             .groups()?
             .into_iter()
-            .map(|g| GroupDto {
-                id: g.id.0.to_string(),
-                name: g.name,
-                emoji: g.emoji,
-                kind: g.kind.into(),
-                base_currency: g.base_currency.code().to_owned(),
-                archived: g.archived,
+            .map(|g| {
+                let me = store.me(g.id)?;
+                let my_balance_minor = match me {
+                    Some(m) => Some(
+                        store
+                            .group_balances(g.id)?
+                            .balances
+                            .get(&m)
+                            .copied()
+                            .unwrap_or(0),
+                    ),
+                    None => None,
+                };
+                Ok(GroupDto {
+                    id: g.id.0.to_string(),
+                    name: g.name,
+                    emoji: g.emoji,
+                    kind: g.kind.into(),
+                    base_currency: g.base_currency.code().to_owned(),
+                    archived: g.archived,
+                    me_id: me.map(|m| m.0.to_string()),
+                    my_balance_minor,
+                })
             })
-            .collect())
+            .collect()
+    }
+
+    /// Sets (or clears) who uses this device in a group. Not synced.
+    ///
+    /// # Errors
+    /// [`CoreError::NotFound`] if the member isn't in the group.
+    pub fn set_me(&self, group_id: String, member_id: Option<String>) -> Result<(), CoreError> {
+        let member = member_id.as_deref().map(member).transpose()?;
+        Ok(self.store().set_me(GroupId(uuid(&group_id)?), member)?)
     }
 
     /// # Errors
@@ -639,6 +668,47 @@ mod tests {
             preview_split(1000, equal(0)),
             Err(CoreError::InvalidSplit { .. })
         ));
+    }
+
+    #[test]
+    fn me_and_my_balance() {
+        let core = Core::in_memory().unwrap();
+        let g = core
+            .create_group("Flat".into(), None, GroupKindDto::Home, "EUR".into())
+            .unwrap();
+        let a = core.add_member(g.clone(), "A".into()).unwrap();
+        let b = core.add_member(g.clone(), "B".into()).unwrap();
+        assert_eq!(core.groups().unwrap()[0].me_id, None);
+        assert_eq!(core.groups().unwrap()[0].my_balance_minor, None);
+        core.save_transaction(TransactionDto {
+            id: None,
+            group_id: g.clone(),
+            kind: TransactionKindDto::Expense,
+            title: "Rent".into(),
+            payer_id: a.clone(),
+            currency: "EUR".into(),
+            fx_rate: None,
+            date_days: 20_000,
+            items: vec![ItemDto {
+                label: None,
+                total_minor: 1000,
+                shares: [&a, &b]
+                    .map(|m| ShareDto {
+                        member_id: m.clone(),
+                        parts: Some(1),
+                        amount_minor: None,
+                    })
+                    .to_vec(),
+            }],
+            base_total_minor: None,
+        })
+        .unwrap();
+        core.set_me(g.clone(), Some(b.clone())).unwrap();
+        let group = &core.groups().unwrap()[0];
+        assert_eq!(group.me_id.as_deref(), Some(b.as_str()));
+        assert_eq!(group.my_balance_minor, Some(-500));
+        core.set_me(g, None).unwrap();
+        assert_eq!(core.groups().unwrap()[0].me_id, None);
     }
 
     #[test]

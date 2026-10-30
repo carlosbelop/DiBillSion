@@ -16,7 +16,9 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -29,11 +31,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dibillsion.app.AppViewModel
+import com.dibillsion.app.Money
 import com.dibillsion.app.R
 import com.dibillsion.app.UiState
 import com.dibillsion.core.GroupDto
@@ -46,12 +50,12 @@ fun GroupsScreen(state: UiState, vm: AppViewModel) {
         NewGroupScreen(vm, onDone = { creating = false })
         return
     }
-    val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
-            LargeTopAppBar(
-                title = { Text(stringResource(R.string.groups_title)) },
+            CenterAlignedTopAppBar(
+                title = { Text(stringResource(R.string.groups_title), style = MaterialTheme.typography.titleLarge) },
                 scrollBehavior = scroll,
             )
         },
@@ -77,16 +81,26 @@ fun GroupsScreen(state: UiState, vm: AppViewModel) {
             return@Scaffold
         }
         val (archived, active) = state.groups.partition { it.archived }
-        LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        PullToRefreshBox(
+            isRefreshing = state.refreshing,
+            onRefresh = vm::refresh,
+            modifier = Modifier.fillMaxSize().padding(padding),
         ) {
-            items(active, key = { it.id }) { g -> GroupCard(g, state.memberCounts[g.id] ?: 0) { vm.openGroup(g.id) } }
-            if (archived.isNotEmpty()) {
-                item { SectionHeader(stringResource(R.string.archived_groups), Modifier.padding(top = 8.dp)) }
-                items(archived, key = { it.id }) { g ->
-                    GroupCard(g, state.memberCounts[g.id] ?: 0, Modifier.alpha(0.6f)) { vm.openGroup(g.id) }
+            LazyColumn(
+                Modifier.fillMaxSize().bottomBounce(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(active, key = { it.id }) { g ->
+                    GroupCard(g, state.memberCounts[g.id] ?: 0, vm, Modifier.animateItem()) { vm.openGroup(g.id) }
+                }
+                if (archived.isNotEmpty()) {
+                    item(key = "archived") {
+                        SectionHeader(stringResource(R.string.archived_groups), Modifier.padding(top = 8.dp).animateItem())
+                    }
+                    items(archived, key = { it.id }) { g ->
+                        GroupCard(g, state.memberCounts[g.id] ?: 0, vm, Modifier.animateItem().alpha(0.6f)) { vm.openGroup(g.id) }
+                    }
                 }
             }
         }
@@ -95,8 +109,14 @@ fun GroupsScreen(state: UiState, vm: AppViewModel) {
 }
 
 @Composable
-private fun GroupCard(g: GroupDto, people: Int, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    ElevatedCard(onClick = onClick, modifier = modifier.fillMaxWidth()) {
+private fun GroupCard(g: GroupDto, people: Int, vm: AppViewModel, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    // Each group gets a faint wash of its own colour so cards are told apart at a glance.
+    val tint = lerp(MaterialTheme.colorScheme.surfaceContainerLow, avatarColor(g.id), 0.22f)
+    ElevatedCard(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(containerColor = tint),
+    ) {
         Row(
             Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -119,6 +139,19 @@ private fun GroupCard(g: GroupDto, people: Int, modifier: Modifier = Modifier, o
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                g.myBalanceMinor?.let { mine ->
+                    val amount = Money.format(kotlin.math.abs(mine), vm.exponentOf(g.baseCurrency) ?: 2, g.baseCurrency)
+                    Text(
+                        when {
+                            mine < 0 -> stringResource(R.string.you_owe, amount)
+                            mine > 0 -> stringResource(R.string.you_are_owed, amount)
+                            else -> stringResource(R.string.you_are_square)
+                        },
+                        style = MaterialTheme.typography.labelLarge,
+                        color = balanceColor(mine),
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
             }
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,

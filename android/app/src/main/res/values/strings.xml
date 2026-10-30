@@ -92,4 +92,17 @@
         <item quantity="one">%1$d expense</item>
         <item quantity="other">%1$d expenses</item>
     </plurals>
+    <string name="change_me">Change who I am</string>
+    <string name="who_are_you">Who are you?</string>
+    <string name="who_are_you_body">Pick yourself so DiBillSion can show what you owe and are owed. Only this phone remembers it.</string>
+    <string name="not_now">Not now</string>
+    <string name="me_suffix">%1$s (you)</string>
+    <string name="pick_me_hint">Tell us which person you are to see your balance and your payments here.</string>
+    <string name="your_balance">Your balance</string>
+    <string name="you_owe">You owe %1$s</string>
+    <string name="you_are_owed">You are owed %1$s</string>
+    <string name="you_are_square">You are all square</string>
+    <string name="you_pay">You pay %1$s</string>
+    <string name="pays_you">%1$s pays you</string>
+    <string name="other_payments">Other payments</string>
 </resources>

@@ -84,6 +84,13 @@ const MIGRATIONS: &[&str] = &[
     CREATE INDEX ops_entity ON ops (group_id, entity, entity_id);
     CREATE INDEX ops_unpushed ON ops (lamport) WHERE pushed = 0;
     ",
+    // 3: device-local preferences per group (never synced).
+    "
+    CREATE TABLE group_prefs (
+        group_id  BLOB PRIMARY KEY NOT NULL REFERENCES groups (id) ON DELETE CASCADE,
+        me        BLOB REFERENCES members (id) ON DELETE SET NULL
+    ) STRICT;
+    ",
 ];
 
 /// Brings the schema up to date in one transaction.

@@ -489,6 +489,50 @@ impl Store {
         )
     }
 
+    /// Records which member is the person using this device in `group`, or
+    /// clears it. Device-local: it is not synced (each phone has its own "me").
+    ///
+    /// # Errors
+    /// [`StoreError::NotFound`] if the group doesn't exist or the member isn't in it.
+    pub fn set_me(&self, group: GroupId, member: Option<MemberId>) -> Result<()> {
+        self.group(group)?;
+        if let Some(m) = member
+            && self.member_group(m)? != group
+        {
+            return Err(StoreError::NotFound);
+        }
+        self.conn.execute(
+            "INSERT INTO group_prefs (group_id, me) VALUES (?1, ?2)
+             ON CONFLICT (group_id) DO UPDATE SET me = ?2",
+            rusqlite::params![group.0, member.map(|m| m.0)],
+        )?;
+        Ok(())
+    }
+
+    /// The member chosen with [`set_me`](Self::set_me), if they are still shown in the group.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn me(&self, group: GroupId) -> Result<Option<MemberId>> {
+        let me: Option<Uuid> = self
+            .conn
+            .query_row(
+                "SELECT me FROM group_prefs WHERE group_id = ?1",
+                [group.0],
+                |r| r.get(0),
+            )
+            .optional()?
+            .flatten();
+        let Some(me) = me.map(MemberId) else {
+            return Ok(None);
+        };
+        Ok(self
+            .members(group)?
+            .iter()
+            .any(|m| m.id == me)
+            .then_some(me))
+    }
+
     /// This install's sync identity.
     ///
     /// # Errors

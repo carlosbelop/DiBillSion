@@ -69,7 +69,8 @@ fun AddExpenseScreen(d: GroupDetail, vm: AppViewModel, onDone: () -> Unit) {
     var amount by rememberSaveable { mutableStateOf("") }
     var currency by rememberSaveable { mutableStateOf(d.group.baseCurrency) }
     var rate by rememberSaveable { mutableStateOf("") }
-    var payer by rememberSaveable { mutableStateOf(active.firstOrNull()?.id) }
+    // Paid by me by default (SPEC flow 2), else the first person.
+    var payer by rememberSaveable { mutableStateOf(d.meId?.takeIf { me -> active.any { it.id == me } } ?: active.firstOrNull()?.id) }
     var among by rememberSaveable { mutableStateOf(active.map { it.id }) }
     var day by rememberSaveable { mutableIntStateOf(LocalDate.now().toEpochDay().toInt()) }
     var pickingDate by remember { mutableStateOf(false) }

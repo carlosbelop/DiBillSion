@@ -313,6 +313,35 @@ fn a_transaction_id_cannot_move_between_groups() {
     assert_eq!(t.store.transactions(t.group).unwrap(), vec![e]);
 }
 
+#[test]
+fn who_am_i_is_per_group_and_local() {
+    let t = trip();
+    assert_eq!(t.store.me(t.group).unwrap(), None);
+    t.store.set_me(t.group, Some(t.b)).unwrap();
+    assert_eq!(t.store.me(t.group).unwrap(), Some(t.b));
+
+    let other = t
+        .store
+        .create_group("Other", None, GroupKind::Other, eur())
+        .unwrap();
+    let z = t.store.add_member(other, "Zoe").unwrap();
+    assert!(matches!(
+        t.store.set_me(t.group, Some(z)),
+        Err(StoreError::NotFound)
+    ));
+    assert_eq!(t.store.me(other).unwrap(), None);
+
+    // Not part of what is synced.
+    let ops_before = t.store.group_ops(t.group).unwrap().len();
+    t.store.set_me(t.group, Some(t.a)).unwrap();
+    assert_eq!(t.store.group_ops(t.group).unwrap().len(), ops_before);
+
+    // A removed member is no longer "me".
+    t.store.delete_member(t.a).unwrap();
+    assert_eq!(t.store.me(t.group).unwrap(), None);
+    t.store.set_me(t.group, None).unwrap();
+}
+
 mod sync {
     use proptest::prelude::*;
 

@@ -85,7 +85,7 @@ fun NewGroupScreen(vm: AppViewModel, onDone: () -> Unit) {
                 },
                 actions = {
                     TextButton(enabled = valid, onClick = {
-                        vm.createGroup(name, emoji, kind, currency, listOf(me) + others)
+                        vm.createGroup(name, emoji, kind, currency, me, others)
                         onDone()
                     }) { Text(stringResource(R.string.create)) }
                 },
