@@ -16,6 +16,9 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -46,6 +49,8 @@ import com.dibillsion.core.GroupDto
 @Composable
 fun GroupsScreen(state: UiState, vm: AppViewModel) {
     var creating by rememberSaveable { mutableStateOf(false) }
+    var joining by rememberSaveable { mutableStateOf(false) }
+    if (joining) JoinDialog(onJoin = vm::join, onDismiss = { joining = false })
     if (creating) {
         NewGroupScreen(vm, onDone = { creating = false })
         return
@@ -56,6 +61,9 @@ fun GroupsScreen(state: UiState, vm: AppViewModel) {
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.groups_title), style = MaterialTheme.typography.titleLarge) },
+                actions = {
+                    TextButton(onClick = { joining = true }) { Text(stringResource(R.string.join)) }
+                },
                 scrollBehavior = scroll,
             )
         },
@@ -92,14 +100,18 @@ fun GroupsScreen(state: UiState, vm: AppViewModel) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(active, key = { it.id }) { g ->
-                    GroupCard(g, state.memberCounts[g.id] ?: 0, vm, Modifier.animateItem()) { vm.openGroup(g.id) }
+                    GroupCard(g, state.memberCounts[g.id] ?: 0, g.id in state.sharedIds, vm, Modifier.animateItem()) {
+                        vm.openGroup(g.id)
+                    }
                 }
                 if (archived.isNotEmpty()) {
                     item(key = "archived") {
                         SectionHeader(stringResource(R.string.archived_groups), Modifier.padding(top = 8.dp).animateItem())
                     }
                     items(archived, key = { it.id }) { g ->
-                        GroupCard(g, state.memberCounts[g.id] ?: 0, vm, Modifier.animateItem().alpha(0.6f)) { vm.openGroup(g.id) }
+                        GroupCard(g, state.memberCounts[g.id] ?: 0, g.id in state.sharedIds, vm, Modifier.animateItem().alpha(0.6f)) {
+                            vm.openGroup(g.id)
+                        }
                     }
                 }
             }
@@ -109,7 +121,7 @@ fun GroupsScreen(state: UiState, vm: AppViewModel) {
 }
 
 @Composable
-private fun GroupCard(g: GroupDto, people: Int, vm: AppViewModel, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun GroupCard(g: GroupDto, people: Int, shared: Boolean, vm: AppViewModel, modifier: Modifier = Modifier, onClick: () -> Unit) {
     // Each group gets a faint wash of its own colour so cards are told apart at a glance.
     val tint = lerp(MaterialTheme.colorScheme.surfaceContainerLow, avatarColor(g.id), 0.22f)
     ElevatedCard(
@@ -135,7 +147,7 @@ private fun GroupCard(g: GroupDto, people: Int, vm: AppViewModel, modifier: Modi
                         stringResource(kindLabel(g.kind)),
                         pluralStringResource(R.plurals.people_count, people, people),
                         g.baseCurrency,
-                    ).joinToString(" · "),
+                    ).plus(if (shared) listOf(stringResource(R.string.shared)) else emptyList()).joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -160,4 +172,31 @@ private fun GroupCard(g: GroupDto, people: Int, vm: AppViewModel, modifier: Modi
             )
         }
     }
+}
+
+@Composable
+private fun JoinDialog(onJoin: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.join_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.join_body), style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    text, { text = it },
+                    label = { Text(stringResource(R.string.invite_link_or_code)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = text.isNotBlank(), onClick = {
+                onJoin(text)
+                onDismiss()
+            }) { Text(stringResource(R.string.join)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }

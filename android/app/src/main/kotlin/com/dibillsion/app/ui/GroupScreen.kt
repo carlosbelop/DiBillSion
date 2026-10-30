@@ -1,5 +1,6 @@
 package com.dibillsion.app.ui
 
+import android.content.Intent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -60,6 +62,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,6 +72,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -93,6 +97,14 @@ private val Tabs = listOf(R.string.tab_expenses, R.string.tab_balances, R.string
 @Composable
 fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
     var adding by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val inviteText = state.invite?.let { stringResource(R.string.invite_message, it.groupName, it.link, it.code) }
+    LaunchedEffect(inviteText) {
+        if (inviteText == null) return@LaunchedEffect
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, inviteText)
+        context.startActivity(Intent.createChooser(send, null))
+        vm.inviteShown()
+    }
     // The expense editor rises from the bottom and sinks back when closed.
     AnimatedContent(
         targetState = adding,
@@ -147,8 +159,9 @@ private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: (
                         Avatar(d.group.emoji ?: initials(d.group.name), d.group.id, size = 36.dp, shape = MaterialTheme.shapes.small)
                         Column {
                             Text(d.group.name, style = MaterialTheme.typography.titleMedium)
+                            val people = pluralStringResource(R.plurals.people_count, d.members.size, d.members.size)
                             Text(
-                                pluralStringResource(R.plurals.people_count, d.members.size, d.members.size),
+                                if (d.shared) stringResource(R.string.people_and_shared, people) else people,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -163,6 +176,23 @@ private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: (
                 actions = {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more)) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.invite_people)) },
+                            leadingIcon = { Icon(Icons.Filled.Share, null) },
+                            onClick = {
+                                menu = false
+                                vm.shareGroup()
+                            },
+                        )
+                        if (d.shared) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.turn_off_invite)) },
+                                onClick = {
+                                    menu = false
+                                    vm.turnOffInvite()
+                                },
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.change_me)) },
                             leadingIcon = { Icon(Icons.Filled.Face, null) },

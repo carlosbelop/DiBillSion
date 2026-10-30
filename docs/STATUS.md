@@ -7,7 +7,7 @@ Last updated: 2026-10-30 (session 3)
 
 ## Where we are
 
-**M0 (tooling): done. M1 (study): done, SPEC v2 approved. M2 (domain): done.** **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; first on-device run done (Pixel 9a); only branding (owner) is left. **M5 (backend + sync): in progress** — sync model (ADR 0004), store op log (ADR 0005) and sync API (ADR 0006), server relay, invites and core sync client done; Android share/join next.
+**M0 (tooling): done. M1 (study): done, SPEC v2 approved. M2 (domain): done.** **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; first on-device run done (Pixel 9a); only branding (owner) is left. **M5 (backend + sync): in progress** — sync model (ADR 0004), store op log (ADR 0005) and sync API (ADR 0006), server, invites, core sync client and Android share/join done; only a two-real-device check is left.
 
 ### Done
 - WSL2 Ubuntu 24.04 environment (`scripts/setup-ubuntu.sh`): Rust stable + Android targets, cargo-nextest/deny/llvm-cov/ndk/bloat, Node 24 (nvm), OpenJDK 21, jadx-headless-mcp 0.7.1, Apktool 3.0.3, adb, gh.
@@ -61,11 +61,22 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 - [x] Auth: anonymous device tokens (`POST /v1/devices`, SHA-256 hash stored, bearer auth), group membership checks (same PR). Sign-in comes later.
 - [x] Invite links on the server: owner gets/turns off/regenerates the group's code, `POST /v1/invites/{code}/join`; claiming a member is the device-local "who am I". End-to-end test: two real stores share a group through the server, edit offline on both sides and converge. ([#58](https://github.com/carlosbelop/DiBillSion/pull/58))
 - [x] Sync client in `dibill-core` ([ADR 0007](adr/0007-sync-client-transport.md)): protocol in Rust, raw HTTP through an `HttpTransport` callback the app implements (system TLS); `share_group`, `invite_code`, `turn_off_invite`, `join_group`, `sync`; store schema v4 (token, per-group cursor); `Offline`/`Server` errors. Tested against an in-memory fake server. ([#60](https://github.com/carlosbelop/DiBillSion/pull/60))
-- [ ] Android: HTTP transport, server URL setting, share group + invite link (share sheet), join from a link (`dibillsion://join/<code>`) or pasted code, sync on open/pull-to-refresh/after edits.
-- [ ] Two-device convergence test (two emulators or emulator + Pixel); needs a reachable server (local first, hosting is an owner decision).
+- [x] Android: `HttpURLConnection` transport, server URL per build type (debug `http://127.0.0.1:8080` via `adb reverse`, cleartext only to localhost in debug; release empty until hosting), "Invitar" (shares the group, then the share sheet with the link and code), turn the link off, "Unirse" with a pasted link/code or a `dibillsion://join/<code>` link, sync on open, pull-to-refresh and after every edit (background, quiet when offline), "Compartido" on cards and header. Checked on the Pixel against a local server, with a second device simulated over HTTP. ([#62](https://github.com/carlosbelop/DiBillSion/pull/62))
+- [ ] Two real devices converging (Pixel + emulator or a second phone) against the local server. The phone ↔ server ↔ second device path already works with the second device simulated over HTTP (PR #62), and two real stores converge through the real server in CI (PR #58).
 
 ### Later
 M4 iOS (needs macOS) · M6 polish · M7 receipt scanning (VLM) · M8 store release. See PLAN §4.
+
+## Dev server (local)
+
+```bash
+docker run -d --name dibillsion-pg -e POSTGRES_PASSWORD=dibill -p 127.0.0.1:55432:5432 postgres:17
+docker exec dibillsion-pg psql -U postgres -c "CREATE DATABASE dibill"
+DATABASE_URL=postgres://postgres:dibill@127.0.0.1:55432/dibill cargo run -p dibill-server
+adb reverse tcp:8080 tcp:8080   # the debug app talks to http://127.0.0.1:8080
+```
+Server tests locally: `DATABASE_URL=postgres://postgres:dibill@127.0.0.1:55432/postgres cargo nextest run -p dibill-server`.
+The dev password is local-only; never reuse it for a hosted database.
 
 ## Known issues and tech debt
 - Remote Control (and mobile push) is disabled by the owner's organization policy, so escalations go in the session's final message and in this file.
@@ -73,9 +84,9 @@ M4 iOS (needs macOS) · M6 polish · M7 receipt scanning (VLM) · M8 store relea
 - `main` isn't protected by GitHub (free plan, private repo). The PR workflow is self-enforced, and `.claude/settings.json` denies direct pushes to `main`.
 
 ## Needs the owner (open requests)
-- **Local PostgreSQL for the server tests** (not blocking; CI runs them): enable *Docker Desktop → Settings → Resources → WSL integration → Ubuntu*, or install PostgreSQL in WSL (`sudo apt install postgresql`). Then `DATABASE_URL=postgres://… cargo nextest run -p dibill-server` runs them here too.
 - **App name, `applicationId` and icon** (needed before M8): keeping DiBillSion and the current icon for now (owner, 2026-10-30); tell me when you have the final ones.
 - **UI direction:** the redesign is original (clean-room rule). Point out on the phone what you'd like different and I'll iterate.
 - **M4 (iOS)** needs a Mac (Xcode); start it when you have one available.
-- **Hosting for the M5 server** (later in M5, not blocking yet): local Docker is enough until the two-device test; a public host costs money and needs your account.
+- **Hosting for the sync server** (now the only thing between sync and real use): sync works today only with the phone tethered to this computer (`adb reverse`). For friends' phones we need a public HTTPS host for `dibill-server` + PostgreSQL (costs money, needs your account) and, for nice invite links, a domain. Tell me the provider/budget and I'll write the deploy config.
+- **Second device (optional)**: an Android emulator (Android Studio on Windows) or a second phone with USB/wireless debugging, for the two-real-device check.
 

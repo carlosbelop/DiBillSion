@@ -108,4 +108,15 @@
     <string name="err_server">El servidor no ha podido atenderlo ahora. Inténtalo de nuevo en un momento.</string>
     <string name="err_invite_invalid">Ese enlace de invitación ya no es válido. Pide uno nuevo.</string>
     <string name="err_forbidden">Solo quien compartió este grupo puede hacer eso.</string>
+    <string name="invite_people">Invitar</string>
+    <string name="turn_off_invite">Desactivar enlace de invitación</string>
+    <string name="invite_turned_off">El enlace de invitación está desactivado. Si invitas de nuevo se crea uno nuevo.</string>
+    <string name="invite_message">Únete a «%1$s» en DiBillSion: %2$s (código de invitación: %3$s)</string>
+    <string name="people_and_shared">%1$s · Compartido</string>
+    <string name="shared">Compartido</string>
+    <string name="join">Unirse</string>
+    <string name="join_title">Unirse a un grupo</string>
+    <string name="join_body">Pega el enlace o el código de invitación que te han enviado.</string>
+    <string name="invite_link_or_code">Enlace o código de invitación</string>
+    <string name="err_no_sync">Esta versión de la app aún no está conectada a un servidor de sincronización.</string>
 </resources>
