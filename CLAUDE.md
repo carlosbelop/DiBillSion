@@ -73,6 +73,8 @@ The owner (`carlosbelop`) wants sessions to **implement and develop autonomously
 | Path | Purpose |
 |---|---|
 | `crates/dibill-domain` | Pure money logic, no I/O |
+| `crates/dibill-store` | On-device SQLite store |
+| `crates/dibill-sync` | Sync model: op-log, clocks, merge (no I/O) |
 | `crates/dibill-core` | Facade for mobile apps (UniFFI) |
 | `crates/dibill-server` | Backend |
 | `android/`, `ios/` | Native UI shells |

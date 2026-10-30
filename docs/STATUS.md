@@ -3,11 +3,11 @@
 > Living document. Every session reads it first and updates it in the same PR as the work it describes.
 > Milestones are defined in [PLAN.md §4](PLAN.md).
 
-Last updated: 2026-10-25 (session 2)
+Last updated: 2026-10-30 (session 3)
 
 ## Where we are
 
-**M0 (tooling): done. M1 (study): done, SPEC v2 approved. M2 (domain): done.** **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; first on-device run done (Pixel 9a).
+**M0 (tooling): done. M1 (study): done, SPEC v2 approved. M2 (domain): done.** **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; first on-device run done (Pixel 9a); only branding (owner) is left. **M5 (backend + sync): in progress** — sync model done (ADR 0004).
 
 ### Done
 - WSL2 Ubuntu 24.04 environment (`scripts/setup-ubuntu.sh`): Rust stable + Android targets, cargo-nextest/deny/llvm-cov/ndk/bloat, Node 24 (nvm), OpenJDK 21, jadx-headless-mcp 0.7.1, Apktool 3.0.3, adb, gh.
@@ -50,8 +50,19 @@ Mark items `[x]` when merged and link the PR.
 - [x] Run the app on the Pixel: all core flows worked; fixes for what showed up in [#39](https://github.com/carlosbelop/DiBillSion/pull/39) (localized errors, confirmations, converted amounts). #39 re-checked on the device: confirmations, Spanish errors and wording all work.
 - [ ] Finalize `applicationId` (currently placeholder `com.dibillsion.app`) and app icon before M8 (branding: owner).
 
+### M5: Backend + sync + invite links
+Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr/0004-sync-model.md).
+- [x] Sync model: `dibill-sync` (op ids, Lamport clock, LWW registers per field, permanent tombstones, in-memory reference replica, convergence property tests) + ADR 0004. ([#46](https://github.com/carlosbelop/DiBillSion/pull/46))
+- [ ] Op-log in `dibill-store`: every local write also records its op (device id + persisted clock); applying remote ops updates rows by the same rule; tested against the reference replica. Members referenced by synced transactions are only deactivated.
+- [ ] Wire format and API ADR (ops push/pull with per-group cursor, auth, invites); shared wire types crate.
+- [ ] `dibill-server` skeleton: axum + PostgreSQL (sqlx migrations), health check, op push/pull relay; integration tests against a Postgres service in CI.
+- [ ] Auth: anonymous device accounts first (SPEC: works without an account), tokens; sign-in later.
+- [ ] Invite links: create/join a shared group, claim a member.
+- [ ] Client sync in `dibill-core` (push pending ops, pull since cursor), exposed to Kotlin; Android UI for sharing/joining.
+- [ ] Two-device convergence test (two emulators or emulator + Pixel); needs a reachable server (local first, hosting is an owner decision).
+
 ### Later
-M4 iOS (needs macOS) · M5 backend + sync + invites · M6 polish · M7 receipt scanning (VLM) · M8 store release. See PLAN §4.
+M4 iOS (needs macOS) · M6 polish · M7 receipt scanning (VLM) · M8 store release. See PLAN §4.
 
 ## Known issues and tech debt
 - Remote Control (and mobile push) is disabled by the owner's organization policy, so escalations go in the session's final message and in this file.
@@ -59,5 +70,7 @@ M4 iOS (needs macOS) · M5 backend + sync + invites · M6 polish · M7 receipt s
 - `main` isn't protected by GitHub (free plan, private repo). The PR workflow is self-enforced, and `.claude/settings.json` denies direct pushes to `main`.
 
 ## Needs the owner (open requests)
-_None right now._ M3 (remaining items) and M4 will be started by the owner.
+- **App name, `applicationId` and icon** (closes M3, needed before M8): pick a name/package; I'll wire it up.
+- **M4 (iOS)** needs a Mac (Xcode); start it when you have one available.
+- **Hosting for the M5 server** (later in M5, not blocking yet): local Docker is enough until the two-device test; a public host costs money and needs your account.
 
