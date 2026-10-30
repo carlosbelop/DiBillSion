@@ -3,8 +3,8 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use deadpool_postgres::GenericClient;
 use dibill_proto::{
-    DeviceToken, EntityKind, MAX_PULL_OPS, MAX_PUSH_OPS, PullQuery, PullResult, PushOps,
-    PushResult, RegisterDevice, SeqOp, WireOp,
+    DeviceToken, EntityKind, Invite, Joined, MAX_PULL_OPS, MAX_PUSH_OPS, PullQuery, PullResult,
+    PushOps, PushResult, RegisterDevice, SeqOp, WireOp,
 };
 use tokio_postgres::Row;
 use uuid::Uuid;
@@ -228,4 +228,88 @@ pub async fn pull_ops(
         .collect::<Result<Vec<_>, _>>()?;
     let cursor = ops.last().map_or(q.after, |o| o.seq);
     Ok(Json(PullResult { ops, cursor, more }))
+}
+
+/// Locks the group's row and checks that `device` owns it.
+async fn lock_owned(
+    db: &impl GenericClient,
+    group: Uuid,
+    device: Uuid,
+) -> Result<Option<String>, AppError> {
+    let row = db
+        .query_opt(
+            "SELECT owner, invite_code FROM groups WHERE id = $1 FOR UPDATE",
+            &[&group],
+        )
+        .await?
+        .ok_or(AppError::NotFound("no such group"))?;
+    if row.get::<_, Uuid>(0) != device {
+        return Err(AppError::Forbidden(
+            "only the group's owner manages its invite link",
+        ));
+    }
+    Ok(row.get(1))
+}
+
+/// `POST /v1/groups/{id}/invites`: the group's invite code, made on first use.
+pub async fn create_invite(
+    State(s): State<AppState>,
+    Device(me): Device,
+    Path(group): Path<Uuid>,
+) -> Result<Json<Invite>, AppError> {
+    let mut client = s.db.get().await?;
+    let tx = client.transaction().await?;
+    let existing = lock_owned(&tx, group, me).await?;
+    let code = if let Some(code) = existing {
+        code
+    } else {
+        let code = new_token(16)?;
+        tx.execute(
+            "UPDATE groups SET invite_code = $2 WHERE id = $1",
+            &[&group, &code],
+        )
+        .await?;
+        code
+    };
+    tx.commit().await?;
+    Ok(Json(Invite { code }))
+}
+
+/// `DELETE /v1/groups/{id}/invites`: turns the link off.
+pub async fn delete_invite(
+    State(s): State<AppState>,
+    Device(me): Device,
+    Path(group): Path<Uuid>,
+) -> Result<StatusCode, AppError> {
+    let mut client = s.db.get().await?;
+    let tx = client.transaction().await?;
+    lock_owned(&tx, group, me).await?;
+    tx.execute(
+        "UPDATE groups SET invite_code = NULL WHERE id = $1",
+        &[&group],
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `POST /v1/invites/{code}/join`: makes the caller a member. Joining twice is fine.
+pub async fn join(
+    State(s): State<AppState>,
+    Device(me): Device,
+    Path(code): Path<String>,
+) -> Result<Json<Joined>, AppError> {
+    let client = s.db.get().await?;
+    let group: Uuid = client
+        .query_opt("SELECT id FROM groups WHERE invite_code = $1", &[&code])
+        .await?
+        .ok_or(AppError::NotFound("this invite link is not valid"))?
+        .get(0);
+    client
+        .execute(
+            "INSERT INTO group_members (group_id, device_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            &[&group, &me],
+        )
+        .await?;
+    Ok(Json(Joined { group_id: group }))
 }

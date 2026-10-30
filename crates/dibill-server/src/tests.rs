@@ -360,3 +360,262 @@ async fn bad_pushes_are_refused_whole() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     db.finish().await;
 }
+
+#[tokio::test]
+async fn invites_let_others_join_until_turned_off() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let (a, token_a) = db.device().await;
+    let (_, token_b) = db.device().await;
+    let (_, token_c) = db.device().await;
+    let group = Uuid::now_v7();
+    let invites = format!("/v1/groups/{group}/invites");
+    let ops_path = format!("/v1/groups/{group}/ops");
+    db.call(
+        Method::PUT,
+        &format!("/v1/groups/{group}"),
+        Some(&token_a),
+        None,
+    )
+    .await;
+    db.call(
+        Method::POST,
+        &ops_path,
+        Some(&token_a),
+        Some(push_body(&[op(group, a, 1, "Trip")])),
+    )
+    .await;
+
+    // Only the owner gets the code, and it stays the same.
+    let (status, body) = db.call(Method::POST, &invites, Some(&token_b), None).await;
+    assert_eq!(
+        (status, &body["error"]),
+        (StatusCode::FORBIDDEN, &json!("forbidden"))
+    );
+    let (status, body) = db.call(Method::POST, &invites, Some(&token_a), None).await;
+    assert_eq!(status, StatusCode::OK);
+    let code = body["code"].as_str().unwrap().to_owned();
+    assert!(code.len() >= 22, "128-bit code");
+    let (_, again) = db.call(Method::POST, &invites, Some(&token_a), None).await;
+    assert_eq!(again["code"], code);
+
+    // B joins (twice is fine) and can now pull and push.
+    let join = format!("/v1/invites/{code}/join");
+    for _ in 0..2 {
+        let (status, body) = db.call(Method::POST, &join, Some(&token_b), None).await;
+        assert_eq!(
+            (status, body),
+            (StatusCode::OK, json!({ "group_id": group }))
+        );
+    }
+    let (status, page) = db.call(Method::GET, &ops_path, Some(&token_b), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(page["ops"].as_array().unwrap().len(), 1);
+    // Members other than the owner can't manage the link.
+    assert_eq!(
+        db.call(Method::DELETE, &invites, Some(&token_b), None)
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+
+    // Turned off: the old code stops working; a new one is different.
+    assert_eq!(
+        db.call(Method::DELETE, &invites, Some(&token_a), None)
+            .await
+            .0,
+        StatusCode::NO_CONTENT
+    );
+    let (status, body) = db.call(Method::POST, &join, Some(&token_c), None).await;
+    assert_eq!(
+        (status, &body["error"]),
+        (StatusCode::NOT_FOUND, &json!("not_found"))
+    );
+    let (_, fresh) = db.call(Method::POST, &invites, Some(&token_a), None).await;
+    assert_ne!(fresh["code"], code);
+    // Joining needs a device token.
+    assert_eq!(
+        db.call(Method::POST, &join, None, None).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    db.finish().await;
+}
+
+mod end_to_end {
+    use dibill_domain::{Currency, ItemShare, MemberId};
+    use dibill_store::{
+        GroupId, GroupKind, Item, Store, SyncOp, Transaction, TransactionId, TransactionKind,
+    };
+
+    use super::*;
+
+    async fn register(db: &TestDb, store: &Store) -> String {
+        let id = store.device_id().unwrap().0;
+        let (status, body) = db
+            .call(
+                Method::POST,
+                "/v1/devices",
+                None,
+                Some(json!({ "device_id": id })),
+            )
+            .await;
+        assert_eq!(status, StatusCode::CREATED);
+        body["token"].as_str().unwrap().to_owned()
+    }
+
+    /// What a sync client will do: send pending ops, then mark them pushed.
+    async fn push(db: &TestDb, store: &mut Store, token: &str, group: GroupId) {
+        let pending = store.pending_ops(1000).unwrap();
+        let wire: Vec<WireOp> = pending.iter().map(WireOp::from).collect();
+        let (status, _) = db
+            .call(
+                Method::POST,
+                &format!("/v1/groups/{}/ops", group.0),
+                Some(token),
+                Some(push_body(&wire)),
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK);
+        let ids: Vec<_> = pending.iter().map(|op| op.id).collect();
+        store.mark_pushed(&ids).unwrap();
+    }
+
+    /// Pulls everything after `cursor`, page by page, and applies it.
+    async fn pull(db: &TestDb, store: &mut Store, token: &str, group: GroupId, cursor: &mut u64) {
+        loop {
+            let (status, page) = db
+                .call(
+                    Method::GET,
+                    &format!("/v1/groups/{}/ops?after={cursor}&limit=3", group.0),
+                    Some(token),
+                    None,
+                )
+                .await;
+            assert_eq!(status, StatusCode::OK);
+            let ops: Vec<SyncOp> = page["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|o| {
+                    SyncOp::try_from(serde_json::from_value::<WireOp>(o["op"].clone()).unwrap())
+                        .unwrap()
+                })
+                .collect();
+            store.apply_remote(&ops).unwrap();
+            *cursor = page["cursor"].as_u64().unwrap();
+            if page["more"] == false {
+                break;
+            }
+        }
+    }
+
+    fn expense(group: GroupId, payer: MemberId, total: i64, among: &[MemberId]) -> Transaction {
+        Transaction {
+            id: TransactionId::new(),
+            group,
+            kind: TransactionKind::Expense,
+            title: "Dinner".into(),
+            payer,
+            currency: Currency::from_code("EUR").unwrap(),
+            fx_rate: None,
+            date_days: 20_000,
+            items: vec![Item {
+                label: None,
+                total,
+                shares: among.iter().map(|m| ItemShare::parts(*m, 1)).collect(),
+            }],
+        }
+    }
+
+    fn view(store: &Store, group: GroupId) -> impl PartialEq + std::fmt::Debug {
+        (
+            store.group(group).unwrap(),
+            store.members(group).unwrap(),
+            store.transactions(group).unwrap(),
+            store.group_balances(group).unwrap(),
+        )
+    }
+
+    #[tokio::test]
+    async fn two_devices_share_a_group_and_converge() {
+        let Some(db) = TestDb::new().await else {
+            return;
+        };
+        let mut a = Store::open_in_memory().unwrap();
+        let mut b = Store::open_in_memory().unwrap();
+        let (token_a, token_b) = (register(&db, &a).await, register(&db, &b).await);
+
+        // A creates and shares a group, then invites B.
+        let group = a
+            .create_group(
+                "Lisbon",
+                Some("🏖"),
+                GroupKind::Trip,
+                Currency::from_code("EUR").unwrap(),
+            )
+            .unwrap();
+        let ana = a.add_member(group, "Ana").unwrap();
+        let bea = a.add_member(group, "Bea").unwrap();
+        a.save_transaction(&expense(group, ana, 3001, &[ana, bea]))
+            .unwrap();
+        db.call(
+            Method::PUT,
+            &format!("/v1/groups/{}", group.0),
+            Some(&token_a),
+            None,
+        )
+        .await;
+        push(&db, &mut a, &token_a, group).await;
+        let (_, invite) = db
+            .call(
+                Method::POST,
+                &format!("/v1/groups/{}/invites", group.0),
+                Some(&token_a),
+                None,
+            )
+            .await;
+        let (_, joined) = db
+            .call(
+                Method::POST,
+                &format!("/v1/invites/{}/join", invite["code"].as_str().unwrap()),
+                Some(&token_b),
+                None,
+            )
+            .await;
+        assert_eq!(joined["group_id"], json!(group.0));
+
+        let (mut cursor_a, mut cursor_b) = (0, 0);
+        pull(&db, &mut b, &token_b, group, &mut cursor_b).await;
+        assert_eq!(view(&b, group), view(&a, group));
+
+        // Both edit offline, then sync in either order.
+        b.save_transaction(&expense(group, bea, 1500, &[ana, bea]))
+            .unwrap();
+        let last = a.transactions(group).unwrap()[0].clone();
+        a.delete_transaction(last.id).unwrap();
+        a.add_member(group, "Carlos").unwrap();
+        push(&db, &mut b, &token_b, group).await;
+        push(&db, &mut a, &token_a, group).await;
+        pull(&db, &mut a, &token_a, group, &mut cursor_a).await;
+        pull(&db, &mut b, &token_b, group, &mut cursor_b).await;
+
+        assert_eq!(view(&a, group), view(&b, group));
+        assert_eq!(a.members(group).unwrap().len(), 3);
+        let t = a.transactions(group).unwrap();
+        assert_eq!(t.len(), 1);
+        assert_eq!(t[0].payer, bea);
+        assert_eq!(
+            a.group_balances(group)
+                .unwrap()
+                .balances
+                .values()
+                .sum::<i64>(),
+            0
+        );
+        // Nothing is left to push once both are in sync.
+        assert_eq!(a.pending_ops(10).unwrap(), []);
+        assert_eq!(b.pending_ops(10).unwrap(), []);
+        db.finish().await;
+    }
+}

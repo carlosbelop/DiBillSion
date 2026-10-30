@@ -25,6 +25,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { workspace = true, features = ["serde"] }
 
 [dev-dependencies]
+dibill-domain.workspace = true
+dibill-store.workspace = true
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 
