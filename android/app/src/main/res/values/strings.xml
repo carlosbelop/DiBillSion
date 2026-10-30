@@ -2,11 +2,10 @@
 <resources>
     <string name="app_name">DiBillSion</string>
     <string name="groups_title">Your groups</string>
-    <string name="groups_empty">No groups yet. Create one to start splitting.</string>
+    <string name="groups_empty">Create a group for a trip, a shared flat or a dinner, add the people, and DiBillSion keeps the accounts exact to the cent.</string>
     <string name="new_group">New group</string>
     <string name="group_name">Group name</string>
-    <string name="base_currency">Currency (ISO code, e.g. EUR)</string>
-    <string name="member_names">People, separated by commas</string>
+    <string name="base_currency">Currency</string>
     <string name="create">Create</string>
     <string name="cancel">Cancel</string>
     <string name="back">Back</string>
@@ -16,7 +15,7 @@
     <string name="tab_balances">Balances</string>
     <string name="tab_people">People</string>
     <string name="add_expense">Add expense</string>
-    <string name="expenses_empty">Nothing here yet.</string>
+    <string name="expenses_empty">Add what someone paid and it will be split among the group.</string>
     <string name="paid_by">Paid by %1$s</string>
     <string name="transfer_line">%1$s paid back %2$s</string>
     <string name="income_line">Received by %1$s</string>
@@ -27,14 +26,12 @@
     <string name="add_person">Add person</string>
     <string name="person_name">Name</string>
     <string name="inactive">Not in new expenses</string>
-    <string name="deactivate">Deactivate</string>
-    <string name="activate">Activate</string>
-    <string name="title">What was it?</string>
+    <string name="title">Description</string>
     <string name="amount">Amount</string>
     <string name="currency">Currency</string>
     <string name="rate">Rate: 1 %1$s = ? %2$s</string>
-    <string name="payer">Who paid?</string>
-    <string name="split_between">Split equally between</string>
+    <string name="payer">Paid by</string>
+    <string name="split_between">Split equally</string>
     <string name="error_amount">Enter a valid positive amount.</string>
     <string name="error_rate">Enter the exchange rate.</string>
     <string name="error_nobody">Pick at least one person.</string>
@@ -50,4 +47,49 @@
     <string name="err_invalid_split">The split doesn’t add up. Check the amounts and who is included.</string>
     <string name="err_invalid_input">Something in the form isn’t valid.</string>
     <string name="err_storage">Couldn’t save to this device. Try again.</string>
+    <string name="groups_empty_title">Split your first bill</string>
+    <string name="base_currency_help">Three-letter code. Balances are shown in this currency.</string>
+    <string name="base_currency_invalid">Use a three-letter currency code, such as EUR or USD.</string>
+    <string name="archived_groups">Archived</string>
+    <string name="group_kind">What is it for?</string>
+    <string name="kind_trip">Trip</string>
+    <string name="kind_home">Home</string>
+    <string name="kind_couple">Couple</string>
+    <string name="kind_event">Event</string>
+    <string name="kind_project">Project</string>
+    <string name="kind_other">Other</string>
+    <string name="people">People</string>
+    <string name="your_name">Your name</string>
+    <string name="person_n">Person %1$d</string>
+    <string name="add_another_person">Add someone else</string>
+    <string name="remove">Remove</string>
+    <string name="discard_changes">Discard what you have entered?</string>
+    <string name="discard">Discard</string>
+    <string name="ok">OK</string>
+    <string name="more">More options</string>
+    <string name="archive_group">Archive group</string>
+    <string name="restore_group">Restore group</string>
+    <string name="delete_group">Delete group</string>
+    <string name="delete_group_title">Delete “%1$s”?</string>
+    <string name="delete_group_body">Its expenses, balances and people are removed from this device. This can’t be undone.</string>
+    <string name="expenses_empty_title">No expenses yet</string>
+    <string name="total_spent">Group spending</string>
+    <string name="today">Today</string>
+    <string name="yesterday">Yesterday</string>
+    <string name="balances_header">Who is up, who is down</string>
+    <string name="settle">Settle</string>
+    <string name="active">Takes part in new expenses</string>
+    <string name="add">Add</string>
+    <string name="new_expense">New expense</string>
+    <string name="converted">About %1$s</string>
+    <string name="select_all">Everyone</string>
+    <string name="select_none">No one</string>
+    <plurals name="people_count">
+        <item quantity="one">%1$d person</item>
+        <item quantity="other">%1$d people</item>
+    </plurals>
+    <plurals name="expenses_count">
+        <item quantity="one">%1$d expense</item>
+        <item quantity="other">%1$d expenses</item>
+    </plurals>
 </resources>

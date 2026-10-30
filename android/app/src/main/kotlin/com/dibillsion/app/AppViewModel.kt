@@ -15,6 +15,7 @@ import com.dibillsion.core.ShareDto
 import com.dibillsion.core.TransactionDto
 import com.dibillsion.core.TransactionKindDto
 import com.dibillsion.core.currencyExponent
+import com.dibillsion.core.previewSplit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +39,8 @@ data class GroupDetail(
 
 data class UiState(
     val groups: List<GroupDto> = emptyList(),
+    /** People per group, for the group cards. */
+    val memberCounts: Map<String, Int> = emptyMap(),
     val detail: GroupDetail? = null,
     val error: String? = null,
 )
@@ -65,13 +68,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissError() = _state.update { it.copy(error = null) }
 
-    fun refreshGroups() = launchCore { _state.update { it.copy(groups = core.groups()) } }
+    fun refreshGroups() = launchCore { loadGroups() }
 
-    fun createGroup(name: String, currency: String, people: List<String>) = launchCore {
-        val id = core.createGroup(name.trim(), null, GroupKindDto.OTHER, currency.trim().uppercase())
-        people.map { it.trim() }.filter { it.isNotEmpty() }.forEach { core.addMember(id, it) }
-        _state.update { it.copy(groups = core.groups()) }
-        loadDetail(id)
+    private fun loadGroups() {
+        val groups = core.groups()
+        val counts = groups.associate { it.id to core.members(it.id).size }
+        _state.update { it.copy(groups = groups, memberCounts = counts) }
+    }
+
+    fun createGroup(name: String, emoji: String?, kind: GroupKindDto, currency: String, people: List<String>) =
+        launchCore {
+            val id = core.createGroup(name.trim(), emoji, kind, currency.trim().uppercase())
+            people.map { it.trim() }.filter { it.isNotEmpty() }.forEach { core.addMember(id, it) }
+            loadGroups()
+            loadDetail(id)
+        }
+
+    fun setArchived(archived: Boolean) = inGroup { core.setGroupArchived(it.group.id, archived) }
+
+    fun deleteGroup() = launchCore {
+        val d = _state.value.detail ?: return@launchCore
+        core.deleteGroup(d.group.id)
+        _state.update { it.copy(detail = null) }
+        loadGroups()
+    }
+
+    /**
+     * What each member's equal share of [totalMinor] comes to, computed by the core so
+     * the editor shows the same cents that will be saved. Empty when it can't split.
+     */
+    fun previewEqualSplit(totalMinor: Long, among: List<String>): List<Long> = try {
+        previewSplit(totalMinor, among.map { ShareDto(it, 1u, null) })
+    } catch (_: CoreException) {
+        emptyList()
     }
 
     fun openGroup(id: String) = launchCore { loadDetail(id) }
@@ -97,6 +126,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         fxRate: String?,
         payerId: String,
         among: List<String>,
+        dateDays: Int,
     ) = inGroup { d ->
         core.saveTransaction(
             TransactionDto(
@@ -107,7 +137,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 payerId = payerId,
                 currency = currency,
                 fxRate = fxRate,
-                dateDays = today(),
+                dateDays = dateDays,
                 items = listOf(ItemDto(null, amountMinor, among.map { ShareDto(it, 1u, null) })),
                 baseTotalMinor = null,
             ),
