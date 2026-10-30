@@ -1,0 +1,55 @@
+# The beta server: PostgreSQL + dibill-server + nightly backups.
+# Secrets come from deploy/.env (git-ignored); see .env.example.
+# Exposed only on 127.0.0.1:8080; HTTPS comes from a tunnel (see README.md).
+name: dibillsion
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dibill
+      POSTGRES_USER: dibill
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dibill -d dibill"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  server:
+    image: ${DIBILL_IMAGE:-dibill-server:latest}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://dibill:${POSTGRES_PASSWORD}@db:5432/dibill
+      RUST_LOG: ${RUST_LOG:-info}
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  backup:
+    image: postgres:17
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: dibill
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: dibill
+      KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./backups:/backups
+      - ./backup.sh:/backup.sh:ro
+    entrypoint: ["sh", "/backup.sh"]
+
+volumes:
+  db:

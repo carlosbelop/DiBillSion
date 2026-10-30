@@ -20,9 +20,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(&bind).await?;
     tracing::info!(%bind, version = env!("CARGO_PKG_VERSION"), "dibill-server listening");
     axum::serve(listener, dibill_server::app(db))
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
+        .with_graceful_shutdown(shutdown())
         .await?;
     Ok(())
+}
+
+/// Ctrl-C locally, SIGTERM from `docker stop` / systemd.
+async fn shutdown() {
+    let ctrl_c = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+    #[cfg(unix)]
+    let term = async {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut s) => {
+                s.recv().await;
+            }
+            Err(_) => std::future::pending::<()>().await,
+        }
+    };
+    #[cfg(not(unix))]
+    let term = std::future::pending::<()>();
+    tokio::select! {
+        () = ctrl_c => {},
+        () = term => {},
+    }
+    tracing::info!("shutting down");
 }
