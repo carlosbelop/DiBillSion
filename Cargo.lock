@@ -389,6 +389,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dibill-proto"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "dibill-server"
 version = "0.1.0"
 dependencies = [
@@ -400,6 +409,7 @@ name = "dibill-store"
 version = "0.1.0"
 dependencies = [
  "dibill-domain",
+ "dibill-proto",
  "dibill-sync",
  "proptest",
  "rusqlite",

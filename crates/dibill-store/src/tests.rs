@@ -519,6 +519,40 @@ mod sync {
     }
 
     #[test]
+    fn ops_survive_the_wire() {
+        let mut t = trip();
+        let e = expense(t.group, t.a, 1000, &[t.a, t.b]);
+        t.store.save_transaction(&e).unwrap();
+        t.store.delete_transaction(e.id).unwrap();
+        let ops = t.store.group_ops(t.group).unwrap();
+        let json: Vec<String> = ops
+            .iter()
+            .map(|op| serde_json::to_string(&dibill_proto::WireOp::from(op)).unwrap())
+            .collect();
+        let back: Vec<SyncOp> = json
+            .iter()
+            .map(|j| {
+                let wire: dibill_proto::WireOp = serde_json::from_str(j).unwrap();
+                assert_eq!(wire.check(), Ok(()));
+                SyncOp::try_from(wire).unwrap()
+            })
+            .collect();
+        assert_eq!(back, ops);
+
+        let mut other = Store::open_in_memory().unwrap();
+        other.apply_remote(&back).unwrap();
+        assert_eq!(snapshot(&other), snapshot(&t.store));
+    }
+
+    #[test]
+    fn unknown_wire_fields_are_refused() {
+        let t = trip();
+        let mut wire = dibill_proto::WireOp::from(&t.store.group_ops(t.group).unwrap()[0]);
+        wire.field = Some("colour".into());
+        assert!(SyncOp::try_from(wire).is_err());
+    }
+
+    #[test]
     fn malformed_ops_are_dropped() {
         let t = trip();
         let mut ops = t.store.group_ops(t.group).unwrap();

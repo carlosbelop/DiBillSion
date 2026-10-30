@@ -10,3 +10,4 @@ Never edit an accepted ADR's decision. Write a new one that supersedes it.
 | [0003](0003-on-device-storage.md) | On-device storage | accepted |
 | [0004](0004-sync-model.md) | Sync model | accepted |
 | [0005](0005-store-op-log.md) | Op log in the on-device store | accepted |
+| [0006](0006-sync-api.md) | Sync API and wire format | accepted |
