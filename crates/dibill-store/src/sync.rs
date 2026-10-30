@@ -707,6 +707,20 @@ pub(crate) fn pending(conn: &Connection, limit: u32) -> Result<Vec<SyncOp>> {
     )
 }
 
+pub(crate) fn pending_in_group(
+    conn: &Connection,
+    group: GroupId,
+    limit: u32,
+) -> Result<Vec<SyncOp>> {
+    query_ops(
+        conn,
+        &format!(
+            "SELECT {OP_COLUMNS} FROM ops WHERE pushed = 0 AND group_id = ?1 ORDER BY lamport, id LIMIT ?2"
+        ),
+        params![group.0, limit],
+    )
+}
+
 pub(crate) fn mark_pushed(conn: &Connection, ids: &[OpId]) -> Result<()> {
     let mut stmt = conn.prepare_cached("UPDATE ops SET pushed = 1 WHERE id = ?1")?;
     for id in ids {

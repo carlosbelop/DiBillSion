@@ -595,7 +595,10 @@ name = "dibill-core"
 version = "0.1.0"
 dependencies = [
  "dibill-domain",
+ "dibill-proto",
  "dibill-store",
+ "serde",
+ "serde_json",
  "tempfile",
  "thiserror",
  "uniffi",

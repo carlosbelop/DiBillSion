@@ -533,6 +533,85 @@ impl Store {
             .then_some(me))
     }
 
+    /// The server token of this device, once registered.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn sync_token(&self) -> Result<Option<String>> {
+        sync::clock(&self.conn)?;
+        Ok(self
+            .conn
+            .query_row("SELECT token FROM sync_device", [], |r| r.get(0))?)
+    }
+
+    /// # Errors
+    /// SQLite errors.
+    pub fn set_sync_token(&self, token: &str) -> Result<()> {
+        sync::clock(&self.conn)?;
+        self.conn
+            .execute("UPDATE sync_device SET token = ?1", [token])?;
+        Ok(())
+    }
+
+    /// Records that `group` is shared through the server (idempotent).
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn mark_shared(&self, group: GroupId) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO group_sync (group_id) VALUES (?1)",
+            [group.0],
+        )?;
+        Ok(())
+    }
+
+    /// # Errors
+    /// SQLite errors.
+    pub fn is_shared(&self, group: GroupId) -> Result<bool> {
+        Ok(self.conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM group_sync WHERE group_id = ?1)",
+            [group.0],
+            |r| r.get(0),
+        )?)
+    }
+
+    /// Shared groups with the server cursor each was last pulled up to.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn shared_groups(&self) -> Result<Vec<(GroupId, u64)>> {
+        self.conn
+            .prepare_cached("SELECT group_id, cursor FROM group_sync ORDER BY group_id")?
+            .query_map([], |r| Ok((GroupId(r.get(0)?), r.get::<_, i64>(1)?)))?
+            .map(|row| {
+                let (g, c) = row?;
+                Ok((g, c.unsigned_abs()))
+            })
+            .collect()
+    }
+
+    /// # Errors
+    /// [`StoreError::NotFound`] if the group isn't shared.
+    pub fn set_cursor(&self, group: GroupId, cursor: u64) -> Result<()> {
+        let cursor = i64::try_from(cursor).map_err(|_| StoreError::Corrupt("cursor".into()))?;
+        let n = self.conn.execute(
+            "UPDATE group_sync SET cursor = ?2 WHERE group_id = ?1",
+            rusqlite::params![group.0, cursor],
+        )?;
+        if n == 0 {
+            return Err(StoreError::NotFound);
+        }
+        Ok(())
+    }
+
+    /// Local ops of one group the server hasn't acknowledged, oldest first.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn pending_group_ops(&self, group: GroupId, limit: u32) -> Result<Vec<SyncOp>> {
+        sync::pending_in_group(&self.conn, group, limit)
+    }
+
     /// This install's sync identity.
     ///
     /// # Errors
