@@ -65,7 +65,7 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 - [ ] Two real devices converging (Pixel + emulator or a second phone) against the local server. The phone ↔ server ↔ second device path already works with the second device simulated over HTTP (PR #62), and two real stores converge through the real server in CI (PR #58).
 
 ### Friends beta (PLAN §4.1: B1, B2)
-- [ ] Deploy kit: multi-arch (ARM64) container for `dibill-server`, `compose.yaml` with PostgreSQL 17, nightly `pg_dump` backups, health check, HTTPS exposure guide (Tailscale Funnel or Cloudflare Tunnel; no open router ports).
+- [x] Deploy kit ([deploy/](../deploy/README.md)): cross-compiled amd64/arm64 image (distroless, non-root), `compose.yaml` with PostgreSQL 17 + nightly `pg_dump` (14 days), `deploy.sh` (build here, ship over SSH, wait for `/health`), HTTPS via Tailscale Funnel or Cloudflare Tunnel, restore guide; server stops cleanly on SIGTERM; CI builds and boots the image. ([#66](https://github.com/carlosbelop/DiBillSion/pull/66))
 - [ ] Server hardening for the public internet: rate limits (device registration per IP, pushes per device), request logging without bodies, CORS off, metrics/health.
 - [ ] Deploy to the beta host (owner: Raspberry Pi set up or VPS account) and point a release build at it.
 - [ ] Android beta build: release signing with an owner-held key (never in git), `SYNC_URL` = beta server, versioning, distribution (owner: APK sideload or Play internal testing).

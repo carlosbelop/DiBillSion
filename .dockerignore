@@ -1,0 +1,10 @@
+# Only the Rust workspace is needed to build the server image.
+.git
+target
+android
+ios
+_study
+docs
+deploy/backups
+deploy/.env
+**/*.apk

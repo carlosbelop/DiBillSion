@@ -49,3 +49,4 @@ ios/*.xcframework/
 .DS_Store
 Thumbs.db
 *.swp
+deploy/backups/

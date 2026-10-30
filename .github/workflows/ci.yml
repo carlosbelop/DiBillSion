@@ -113,3 +113,21 @@ jobs:
           if git ls-files | grep -E '(^|/)_study/|\.(apk|apks|aab|xapk|dex|smali)$'; then
             echo "::error::Study material or APK files are tracked. Remove them."; exit 1
           fi
+
+  server-image:
+    name: Server image (Docker)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the beta server image (amd64)
+        run: docker build -f deploy/Dockerfile -t dibill-server:ci .
+      - name: It starts and answers /health
+        run: |
+          docker network create t
+          docker run -d --name db --network t -e POSTGRES_PASSWORD=ci -e POSTGRES_USER=dibill -e POSTGRES_DB=dibill postgres:17
+          for i in $(seq 1 30); do docker exec db pg_isready -U dibill && break; sleep 2; done
+          docker run -d --name server --network t -p 8080:8080 \
+            -e DATABASE_URL=postgres://dibill:ci@db:5432/dibill dibill-server:ci
+          for i in $(seq 1 30); do curl -fsS localhost:8080/health && exit 0; sleep 2; done
+          docker logs server; exit 1
+
