@@ -8,3 +8,4 @@ Never edit an accepted ADR's decision. Write a new one that supersedes it.
 | [0001](0001-rust-core-native-ui.md) | Shared Rust core with native UI shells | accepted |
 | [0002](0002-fx-conversion-rounding.md) | FX conversion and rounding | accepted |
 | [0003](0003-on-device-storage.md) | On-device storage | accepted |
+| [0004](0004-sync-model.md) | Sync model | accepted |

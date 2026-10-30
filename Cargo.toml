@@ -4,6 +4,7 @@ members = [
   "crates/dibill-domain",
   "crates/dibill-core",
   "crates/dibill-store",
+  "crates/dibill-sync",
   "crates/dibill-server",
 ]
 
@@ -17,6 +18,7 @@ publish = false
 [workspace.dependencies]
 dibill-domain = { path = "crates/dibill-domain", version = "0.1.0" }
 dibill-store = { path = "crates/dibill-store", version = "0.1.0" }
+dibill-sync = { path = "crates/dibill-sync", version = "0.1.0" }
 thiserror = "2"
 uuid = { version = "1", features = ["v7"] }
 proptest = "1"
