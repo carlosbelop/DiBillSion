@@ -94,7 +94,12 @@ pub fn app(db: Pool) -> Router {
         .route(
             "/groups/{id}/ops",
             post(routes::push_ops).get(routes::pull_ops),
-        );
+        )
+        .route(
+            "/groups/{id}/invites",
+            post(routes::create_invite).delete(routes::delete_invite),
+        )
+        .route("/invites/{code}/join", post(routes::join));
     Router::new()
         .route("/health", get(routes::health))
         .nest(API_PREFIX, api)
