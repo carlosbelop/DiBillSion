@@ -106,6 +106,10 @@ pub async fn push_ops(
     Path(group): Path<Uuid>,
     Body(req): Body<PushOps>,
 ) -> Result<Json<PushResult>, AppError> {
+    let mut client = s.db.get().await?;
+    let tx = client.transaction().await?;
+    // Membership first: outsiders learn nothing about their request.
+    require_member(&tx, group, me).await?;
     if req.ops.len() > MAX_PUSH_OPS {
         return Err(AppError::TooLarge(format!(
             "at most {MAX_PUSH_OPS} ops per push"
@@ -128,9 +132,6 @@ pub async fn push_ops(
             .map_err(|p| AppError::Invalid(format!("op {}: {p:?}", op.id)))?;
     }
 
-    let mut client = s.db.get().await?;
-    let tx = client.transaction().await?;
-    require_member(&tx, group, me).await?;
     // Locks the group's row, so concurrent pushes get consecutive numbers.
     let mut seq: i64 = tx
         .query_one(
