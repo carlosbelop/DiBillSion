@@ -75,3 +75,12 @@ shared as the `dibill-proto` crate.
   the server yet; that comes with accounts.
 - The server can show nothing about a group (not even its name) without reading values, so an
   invite preview, if wanted, is computed by the app after joining.
+
+## Addendum (2026-10-30, server skeleton)
+
+- Error code `internal` for unexpected server failures (HTTP 500); clients retry later.
+- PostgreSQL is reached through `tokio-postgres` with a `deadpool-postgres` pool instead of the
+  `sqlx` named in PLAN §3.3: `sqlx` lists an optional SQLite driver, and Cargo's `links` check
+  makes it clash with `rusqlite`'s SQLite in the shared workspace lockfile. Migrations are an
+  embedded, append-only list of SQL files applied in order under an advisory lock, recorded in
+  `schema_migrations`.

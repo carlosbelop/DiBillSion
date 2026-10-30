@@ -157,6 +157,8 @@ pub enum ErrorCode {
     NotFound,
     InvalidRequest,
     TooLarge,
+    /// Something failed on the server; retrying later may work.
+    Internal,
 }
 
 /// Body of every error response.

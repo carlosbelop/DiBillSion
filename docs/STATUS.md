@@ -7,7 +7,7 @@ Last updated: 2026-10-30 (session 3)
 
 ## Where we are
 
-**M0 (tooling): done. M1 (study): done, SPEC v2 approved. M2 (domain): done.** **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; first on-device run done (Pixel 9a); only branding (owner) is left. **M5 (backend + sync): in progress** — sync model (ADR 0004), store op log (ADR 0005) and sync API (ADR 0006) done; server next.
+**M0 (tooling): done. M1 (study): done, SPEC v2 approved. M2 (domain): done.** **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; first on-device run done (Pixel 9a); only branding (owner) is left. **M5 (backend + sync): in progress** — sync model (ADR 0004), store op log (ADR 0005) and sync API (ADR 0006) and server relay done; invites next.
 
 ### Done
 - WSL2 Ubuntu 24.04 environment (`scripts/setup-ubuntu.sh`): Rust stable + Android targets, cargo-nextest/deny/llvm-cov/ndk/bloat, Node 24 (nvm), OpenJDK 21, jadx-headless-mcp 0.7.1, Apktool 3.0.3, adb, gh.
@@ -57,8 +57,8 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 - [x] Sync model: `dibill-sync` (op ids, Lamport clock, LWW registers per field, permanent tombstones, in-memory reference replica, convergence property tests) + ADR 0004. ([#46](https://github.com/carlosbelop/DiBillSion/pull/46))
 - [x] Op log in `dibill-store` (schema v2, [ADR 0005](adr/0005-store-op-log.md)): every write records ops and rows are rebuilt from them; remote ops in any order; pending/pushed bookkeeping; backfill of existing installs. Property test: three stores converge and match the reference replica. ([#48](https://github.com/carlosbelop/DiBillSion/pull/48))
 - [x] Sync API and wire format ([ADR 0006](adr/0006-sync-api.md)): JSON over HTTPS under `/v1`, anonymous device tokens, per-group sequence cursor for pull, envelope-only checks on the server, invite codes. Wire types in `dibill-proto`, conversions from the store's `SyncOp`. ([#54](https://github.com/carlosbelop/DiBillSion/pull/54))
-- [ ] `dibill-server` skeleton: axum + PostgreSQL (sqlx migrations), health check, op push/pull relay; integration tests against a Postgres service in CI.
-- [ ] Auth: anonymous device accounts first (SPEC: works without an account), tokens; sign-in later.
+- [x] `dibill-server` skeleton: axum + PostgreSQL (`tokio-postgres` + `deadpool`, embedded migrations; `sqlx` clashes with `rusqlite`'s SQLite, see ADR 0006 addendum), `/health`, op push/pull relay with per-group sequence, JSON errors; integration tests against a PostgreSQL 17 service in CI (skipped locally without `DATABASE_URL`). ([#56](https://github.com/carlosbelop/DiBillSion/pull/56))
+- [x] Auth: anonymous device tokens (`POST /v1/devices`, SHA-256 hash stored, bearer auth), group membership checks (same PR). Sign-in comes later.
 - [ ] Invite links: create/join a shared group, claim a member.
 - [ ] Client sync in `dibill-core` (push pending ops, pull since cursor), exposed to Kotlin; Android UI for sharing/joining.
 - [ ] Two-device convergence test (two emulators or emulator + Pixel); needs a reachable server (local first, hosting is an owner decision).
@@ -72,6 +72,7 @@ M4 iOS (needs macOS) · M6 polish · M7 receipt scanning (VLM) · M8 store relea
 - `main` isn't protected by GitHub (free plan, private repo). The PR workflow is self-enforced, and `.claude/settings.json` denies direct pushes to `main`.
 
 ## Needs the owner (open requests)
+- **Local PostgreSQL for the server tests** (not blocking; CI runs them): enable *Docker Desktop → Settings → Resources → WSL integration → Ubuntu*, or install PostgreSQL in WSL (`sudo apt install postgresql`). Then `DATABASE_URL=postgres://… cargo nextest run -p dibill-server` runs them here too.
 - **App name, `applicationId` and icon** (needed before M8): keeping DiBillSion and the current icon for now (owner, 2026-10-30); tell me when you have the final ones.
 - **UI direction:** the redesign is original (clean-room rule). Point out on the phone what you'd like different and I'll iterate.
 - **M4 (iOS)** needs a Mac (Xcode); start it when you have one available.
