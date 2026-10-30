@@ -19,7 +19,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            // A dev server on this computer, reached through `adb reverse tcp:8080 tcp:8080`.
+            buildConfigField("String", "SYNC_URL", "\"http://127.0.0.1:8080\"")
+        }
         release {
+            // Empty until hosting is decided (owner): sharing says sync isn't set up.
+            buildConfigField("String", "SYNC_URL", "\"\"")
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
@@ -27,6 +33,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

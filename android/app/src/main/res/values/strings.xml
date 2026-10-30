@@ -109,4 +109,15 @@
     <string name="err_server">The server couldn’t handle that right now. Try again in a moment.</string>
     <string name="err_invite_invalid">That invite link isn’t valid any more. Ask for a new one.</string>
     <string name="err_forbidden">Only the person who shared this group can do that.</string>
+    <string name="invite_people">Invite people</string>
+    <string name="turn_off_invite">Turn off invite link</string>
+    <string name="invite_turned_off">The invite link is off. Inviting again creates a new link.</string>
+    <string name="invite_message">Join “%1$s” on DiBillSion: %2$s (invite code: %3$s)</string>
+    <string name="people_and_shared">%1$s · Shared</string>
+    <string name="shared">Shared</string>
+    <string name="join">Join</string>
+    <string name="join_title">Join a group</string>
+    <string name="join_body">Paste the invite link or code someone sent you.</string>
+    <string name="invite_link_or_code">Invite link or code</string>
+    <string name="err_no_sync">This version of the app isn’t connected to a sync server yet.</string>
 </resources>

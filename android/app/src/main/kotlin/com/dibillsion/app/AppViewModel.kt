@@ -34,6 +34,8 @@ data class GroupDetail(
     val transactions: List<TransactionDto>,
     val balances: BalancesDto,
     val exponent: Int,
+    /** Synced through the server (ADR 0007). */
+    val shared: Boolean = false,
 ) {
     fun name(memberId: String): String = members.firstOrNull { it.id == memberId }?.displayName ?: "?"
 
@@ -48,7 +50,15 @@ data class UiState(
     val detail: GroupDetail? = null,
     val error: String? = null,
     val refreshing: Boolean = false,
+    /** Groups synced through the server, for the cards. */
+    val sharedIds: Set<String> = emptySet(),
+    /** An invite ready to hand to the share sheet; cleared once shown. */
+    val invite: PendingInvite? = null,
 )
+
+data class PendingInvite(val groupName: String, val code: String) {
+    val link: String get() = "dibillsion://join/$code"
+}
 
 /**
  * Talks to the Rust core. Every core call is short and blocking, so it runs on
@@ -57,6 +67,9 @@ data class UiState(
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val coreLazy = lazy { Core.open(File(app.filesDir, "dibill.db").absolutePath) }
     private val core: Core by coreLazy
+
+    /** Null when this build has no server (release until hosting is decided). */
+    private val transport: SyncTransport? = BuildConfig.SYNC_URL.takeIf { it.isNotEmpty() }?.let(::SyncTransport)
 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
@@ -78,7 +91,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun loadGroups() {
         val groups = core.groups()
         val counts = groups.associate { it.id to core.members(it.id).size }
-        _state.update { it.copy(groups = groups, memberCounts = counts) }
+        val shared = groups.filter { core.isShared(it.id) }.map { it.id }.toSet()
+        _state.update { it.copy(groups = groups, memberCounts = counts, sharedIds = shared) }
     }
 
     /** Creates a group; [me] (if given) becomes "who I am" on this device. */
@@ -91,13 +105,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             loadDetail(id)
         }
 
-    /** Pull-to-refresh: reloads from the core (and, once sync exists, from the server). */
+    /** Pull-to-refresh: syncs shared groups with the server, then reloads. */
     fun refresh() {
         _state.update { it.copy(refreshing = true) }
         viewModelScope.launch {
             // Keep the indicator visible long enough to read as feedback.
             val minimum = launch { delay(450) }
             withContext(Dispatchers.IO) {
+                try {
+                    transport?.let { core.sync(it) }
+                } catch (e: CoreException) {
+                    _state.update { it.copy(error = describe(e)) }
+                }
                 try {
                     loadGroups()
                     _state.value.detail?.let { loadDetail(it.group.id) }
@@ -131,7 +150,63 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         emptyList()
     }
 
-    fun openGroup(id: String) = launchCore { loadDetail(id) }
+    fun openGroup(id: String) = launchCore {
+        loadDetail(id)
+        syncQuietly()
+    }
+
+    /**
+     * Shares the open group (first time) and prepares its invite for the share sheet.
+     * Only the person who shared it can invite (ADR 0006).
+     */
+    fun shareGroup() = launchCore {
+        val t = transportOrExplain() ?: return@launchCore
+        val d = _state.value.detail ?: return@launchCore
+        if (!core.isShared(d.group.id)) core.shareGroup(t, d.group.id)
+        val code = core.inviteCode(t, d.group.id)
+        loadDetail(d.group.id)
+        loadGroups()
+        _state.update { it.copy(invite = PendingInvite(d.group.name, code)) }
+    }
+
+    fun inviteShown() = _state.update { it.copy(invite = null) }
+
+    /** Turns the invite link off; inviting again makes a new one. */
+    fun turnOffInvite() = launchCore {
+        val t = transportOrExplain() ?: return@launchCore
+        val d = _state.value.detail ?: return@launchCore
+        core.turnOffInvite(t, d.group.id)
+        _state.update { it.copy(error = getApplication<Application>().getString(R.string.invite_turned_off)) }
+    }
+
+    /** Joins from an invite link or a bare code, then opens the group. */
+    fun join(linkOrCode: String) = launchCore {
+        val t = transportOrExplain() ?: return@launchCore
+        val code = linkOrCode.trim().substringAfterLast('/').substringBefore('?')
+        val id = core.joinGroup(t, code)
+        loadGroups()
+        loadDetail(id)
+    }
+
+    private fun transportOrExplain(): SyncTransport? = transport ?: run {
+        _state.update { it.copy(error = getApplication<Application>().getString(R.string.err_no_sync)) }
+        null
+    }
+
+    /** Background sync: offline or server trouble stays quiet until the next try. */
+    private fun syncQuietly() {
+        val t = transport ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                if (core.sync(t).pulled > 0u) {
+                    loadGroups()
+                    _state.value.detail?.let { loadDetail(it.group.id) }
+                }
+            } catch (e: CoreException) {
+                Log.i("DiBillSion", "background sync failed", e)
+            }
+        }
+    }
 
     fun closeGroup() {
         _state.update { it.copy(detail = null) }
@@ -200,6 +275,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             transactions = core.transactions(groupId),
             balances = core.balances(groupId),
             exponent = currencyExponent(group.baseCurrency).toInt(),
+            shared = core.isShared(groupId),
         )
         _state.update { it.copy(detail = detail) }
     }
@@ -210,6 +286,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         block(d)
         loadDetail(d.group.id)
         loadGroups() // the cards show my balance
+        syncQuietly()
     }
 
     private fun launchCore(block: () -> Unit) {
