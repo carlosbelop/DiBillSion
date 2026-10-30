@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 dibill-domain.workspace = true
+dibill-proto.workspace = true
 dibill-sync.workspace = true
 rusqlite.workspace = true
 serde.workspace = true

@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
 use dibill_domain::{Currency, FxRate, ItemShare, MemberId, MemberStatus, Minor, Portion};
+use dibill_proto::{EntityKind, WireOp};
 use dibill_sync::{Change, DeviceId, EntityState, LamportClock, Op, OpId, Replica, Stamp};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::de::DeserializeOwned;
@@ -132,6 +133,62 @@ impl SyncOp {
             }
             _ => false,
         }
+    }
+}
+
+impl From<&SyncOp> for WireOp {
+    fn from(op: &SyncOp) -> Self {
+        let (field, value) = match &op.change {
+            Change::Set { field, value } => (Some(field.as_str().to_owned()), Some(value.clone())),
+            Change::Delete => (None, None),
+        };
+        Self {
+            id: op.id.0,
+            group: op.group.0,
+            lamport: op.stamp.lamport,
+            device: op.stamp.device.0,
+            entity: match op.entity {
+                Entity::Group => EntityKind::Group,
+                Entity::Member(_) => EntityKind::Member,
+                Entity::Transaction(_) => EntityKind::Transaction,
+            },
+            entity_id: op.entity.id(op.group),
+            field,
+            value,
+        }
+    }
+}
+
+impl TryFrom<WireOp> for SyncOp {
+    type Error = StoreError;
+
+    /// Fails for envelopes this version doesn't understand (a field added by a
+    /// newer app, say); callers drop such ops like malformed ones.
+    fn try_from(op: WireOp) -> Result<Self> {
+        let change = match (op.field, op.value) {
+            (Some(field), Some(value)) => Change::Set {
+                field: Field::parse(&field)?,
+                value,
+            },
+            (None, None) => Change::Delete,
+            _ => return Err(StoreError::Corrupt("op field without value".into())),
+        };
+        let entity = match op.entity {
+            EntityKind::Group if op.entity_id == op.group => Entity::Group,
+            EntityKind::Group => return Err(StoreError::Corrupt("group op for another id".into())),
+            EntityKind::Member => Entity::Member(MemberId(op.entity_id)),
+            EntityKind::Transaction => Entity::Transaction(TransactionId(op.entity_id)),
+        };
+        Ok(Self {
+            id: OpId(op.id),
+            group: GroupId(op.group),
+            stamp: Stamp {
+                lamport: op.lamport,
+                device: DeviceId(op.device),
+            },
+            entity,
+            change,
+        })
     }
 }
 
