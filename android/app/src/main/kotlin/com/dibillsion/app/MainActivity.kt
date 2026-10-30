@@ -5,15 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.dibillsion.app.ui.DiBillTheme
 import com.dibillsion.app.ui.GroupScreen
 import com.dibillsion.app.ui.GroupsScreen
 
@@ -37,12 +34,4 @@ private fun App(vm: AppViewModel = viewModel()) {
             GroupScreen(detail, state.error, vm)
         }
     }
-}
-
-@Composable
-private fun DiBillTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme(),
-        content = content,
-    )
 }

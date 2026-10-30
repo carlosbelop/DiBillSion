@@ -48,7 +48,8 @@ Mark items `[x]` when merged and link the PR.
 - [x] Compose shell: groups, members, expenses, balances, settle-up. Offline only. ([#37](https://github.com/carlosbelop/DiBillSion/pull/37)) Builds and passes JVM tests (including a smoke test through the real core); **not yet run on a device**.
 - [x] CI job: `cargo ndk` build + Gradle assemble + unit tests, debug APK uploaded as an artifact (same PR).
 - [x] Run the app on the Pixel: all core flows worked; fixes for what showed up in [#39](https://github.com/carlosbelop/DiBillSion/pull/39) (localized errors, confirmations, converted amounts). #39 re-checked on the device: confirmations, Spanish errors and wording all work.
-- [ ] Finalize `applicationId` (currently placeholder `com.dibillsion.app`) and app icon before M8 (branding: owner).
+- [ ] Finalize `applicationId` (currently placeholder `com.dibillsion.app`) and app icon before M8 (branding: owner). The owner decided on 2026-10-30 to keep the name DiBillSion and the current icon for now; they will change them later.
+- [x] UI redesign with our own visual identity (teal/amber palette, avatars, grouped expense list, balance bars, full-screen editors, live exact shares from the core via `preview_split`). The owner asked for a copy of the studied app's UI; per hard rule 1 (clean room) it was redesigned from SPEC flows instead, without copying its layouts, strings, icons or images. ([#50](https://github.com/carlosbelop/DiBillSion/pull/50))
 
 ### M5: Backend + sync + invite links
 Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr/0004-sync-model.md), [ADR 0005](adr/0005-store-op-log.md).
@@ -70,7 +71,8 @@ M4 iOS (needs macOS) · M6 polish · M7 receipt scanning (VLM) · M8 store relea
 - `main` isn't protected by GitHub (free plan, private repo). The PR workflow is self-enforced, and `.claude/settings.json` denies direct pushes to `main`.
 
 ## Needs the owner (open requests)
-- **App name, `applicationId` and icon** (closes M3, needed before M8): pick a name/package; I'll wire it up.
+- **App name, `applicationId` and icon** (needed before M8): keeping DiBillSion and the current icon for now (owner, 2026-10-30); tell me when you have the final ones.
+- **UI direction:** the redesign is original (clean-room rule). Point out on the phone what you'd like different and I'll iterate.
 - **M4 (iOS)** needs a Mac (Xcode); start it when you have one available.
 - **Hosting for the M5 server** (later in M5, not blocking yet): local Docker is enough until the two-device test; a public host costs money and needs your account.
 

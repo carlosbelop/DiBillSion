@@ -13,7 +13,7 @@ use std::sync::{Mutex, MutexGuard};
 
 use dibill_domain::{
     Currency, CurrencyError, FxError, FxRate, ItemShare, MemberError, MemberId, MemberStatus,
-    Portion, convert,
+    Portion, convert, split_item,
 };
 use dibill_store::{
     GroupId, GroupKind, Item, Store, StoreError, Transaction, TransactionId, TransactionKind,
@@ -38,6 +38,21 @@ pub fn core_version() -> String {
 #[uniffi::export]
 pub fn currency_exponent(code: String) -> Result<u8, CoreError> {
     Ok(currency(&code)?.exponent())
+}
+
+/// What each share of one item comes to, in the same order, with the exact
+/// rule used when saving. Lets the editor show per-person amounts that add up.
+///
+/// # Errors
+/// [`CoreError::InvalidSplit`] (or invalid ids) when the shares don't split `total_minor`.
+#[uniffi::export]
+pub fn preview_split(total_minor: i64, shares: Vec<ShareDto>) -> Result<Vec<i64>, CoreError> {
+    let shares: Vec<ItemShare> = shares.into_iter().map(share).collect::<Result<_, _>>()?;
+    Ok(split_item(total_minor, &shares)
+        .map_err(|e| CoreError::from(StoreError::from(e)))?
+        .into_iter()
+        .map(|(_, amount)| amount)
+        .collect())
 }
 
 /// Typed so the apps can show a localized message per case; `reason` carries
@@ -446,26 +461,24 @@ fn currency(code: &str) -> Result<Currency, CoreError> {
     })
 }
 
+fn share(s: ShareDto) -> Result<ItemShare, CoreError> {
+    let portion = match (s.parts, s.amount_minor) {
+        (Some(w), None) => Portion::Parts(w),
+        (None, Some(a)) => Portion::Amount(a),
+        _ => return Err(invalid("a share needs exactly one of parts or amount")),
+    };
+    Ok(ItemShare {
+        member: member(&s.member_id)?,
+        portion,
+    })
+}
+
 fn from_dto(t: TransactionDto) -> Result<Transaction, CoreError> {
     let items = t
         .items
         .into_iter()
         .map(|i| {
-            let shares = i
-                .shares
-                .into_iter()
-                .map(|s| {
-                    let portion = match (s.parts, s.amount_minor) {
-                        (Some(w), None) => Portion::Parts(w),
-                        (None, Some(a)) => Portion::Amount(a),
-                        _ => return Err(invalid("a share needs exactly one of parts or amount")),
-                    };
-                    Ok(ItemShare {
-                        member: member(&s.member_id)?,
-                        portion,
-                    })
-                })
-                .collect::<Result<_, _>>()?;
+            let shares = i.shares.into_iter().map(share).collect::<Result<_, _>>()?;
             Ok(Item {
                 label: i.label,
                 total: i.total_minor,
@@ -605,6 +618,27 @@ mod tests {
         );
         assert_eq!(core.groups().unwrap()[0].name, "Lisbon");
         assert_eq!(currency_exponent("JPY".into()).unwrap(), 0);
+    }
+
+    #[test]
+    fn preview_split_matches_saving() {
+        let ids: Vec<String> = (0..3).map(|_| MemberId::new().0.to_string()).collect();
+        let equal = |parts| -> Vec<ShareDto> {
+            ids.iter()
+                .map(|id| ShareDto {
+                    member_id: id.clone(),
+                    parts: Some(parts),
+                    amount_minor: None,
+                })
+                .collect()
+        };
+        let shares = preview_split(1000, equal(1)).unwrap();
+        assert_eq!(shares.iter().sum::<i64>(), 1000);
+        assert_eq!(shares.iter().filter(|&&a| a == 334).count(), 1);
+        assert!(matches!(
+            preview_split(1000, equal(0)),
+            Err(CoreError::InvalidSplit { .. })
+        ));
     }
 
     #[test]
