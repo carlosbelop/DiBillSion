@@ -4,8 +4,12 @@
 //!
 //! Every write is validated with `dibill-domain` first, so the database only
 //! ever holds transactions that split and convert cleanly.
+//!
+//! Every write is also recorded in the sync op log, and the rows are a
+//! projection of it (ADR 0005): see [`Store::apply_remote`].
 
 mod schema;
+mod sync;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -17,8 +21,12 @@ use dibill_domain::{
     MemberError, MemberId, MemberStatus, Minor, Portion, SplitError, Transfer, balances,
     check_expense_members, check_transfer_members, convert_items, settle_up, split_item,
 };
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension};
 use uuid::Uuid;
+
+pub use dibill_sync::{Change, DeviceId, OpId, Stamp};
+pub use sync::{Entity, Field, SyncOp};
+use sync::{json, set};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -233,7 +241,32 @@ impl Store {
         conn.pragma_update(None, "synchronous", "NORMAL")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
         schema::migrate(&mut conn)?;
+        let tx = conn.transaction()?;
+        if sync::clock(&tx)?.1 {
+            sync::backfill(&tx)?;
+        }
+        tx.commit()?;
         Ok(Self { conn })
+    }
+
+    /// Records a local change and rebuilds the entity's rows, atomically.
+    fn write(
+        &self,
+        group: GroupId,
+        entity: Entity,
+        changes: Vec<Change<Field, String>>,
+    ) -> Result<()> {
+        let tx = self.conn.unchecked_transaction()?;
+        for change in changes {
+            sync::record(&tx, group, entity, change)?;
+        }
+        match entity {
+            Entity::Group => sync::materialize_group(&tx, group)?,
+            Entity::Member(m) => sync::materialize_member(&tx, group, m)?,
+            Entity::Transaction(t) => sync::materialize_transaction(&tx, group, t)?,
+        }
+        tx.commit()?;
+        Ok(())
     }
 
     /// # Errors
@@ -246,9 +279,15 @@ impl Store {
         base_currency: Currency,
     ) -> Result<GroupId> {
         let id = GroupId(Uuid::now_v7());
-        self.conn.execute(
-            "INSERT INTO groups (id, name, emoji, kind, base_currency, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![id.0, name, emoji, kind.as_str(), base_currency.code(), now_ms()],
+        self.write(
+            id,
+            Entity::Group,
+            vec![
+                set(Field::BaseCurrency, json(base_currency.code())),
+                set(Field::Name, json(name)),
+                set(Field::Emoji, json(&emoji)),
+                set(Field::Kind, json(kind.as_str())),
+            ],
         )?;
         Ok(id)
     }
@@ -292,11 +331,12 @@ impl Store {
     /// # Errors
     /// [`StoreError::NotFound`] for an unknown group.
     pub fn set_archived(&self, id: GroupId, archived: bool) -> Result<()> {
-        let at = archived.then(now_ms);
-        expect_one(self.conn.execute(
-            "UPDATE groups SET archived_at = ?2 WHERE id = ?1",
-            params![id.0, at],
-        )?)
+        self.group(id)?;
+        self.write(
+            id,
+            Entity::Group,
+            vec![set(Field::Archived, json(&archived))],
+        )
     }
 
     /// Deletes a group and everything in it.
@@ -304,32 +344,42 @@ impl Store {
     /// # Errors
     /// [`StoreError::NotFound`] for an unknown group.
     pub fn delete_group(&mut self, id: GroupId) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        // Shares and transactions reference members, so remove them first.
-        tx.execute("DELETE FROM transactions WHERE group_id = ?1", [id.0])?;
-        let n = tx.execute("DELETE FROM groups WHERE id = ?1", [id.0])?;
-        tx.commit()?;
-        expect_one(n)
+        self.group(id)?;
+        self.write(id, Entity::Group, vec![Change::Delete])
     }
 
     /// # Errors
-    /// SQLite errors (e.g. unknown group).
+    /// [`StoreError::NotFound`] for an unknown group.
     pub fn add_member(&self, group: GroupId, display_name: &str) -> Result<MemberId> {
+        self.group(group)?;
         let id = MemberId::new();
-        self.conn.execute(
-            "INSERT INTO members (id, group_id, display_name, status, created_at) VALUES (?1, ?2, ?3, 'active', ?4)",
-            params![id.0, group.0, display_name, now_ms()],
+        self.write(
+            group,
+            Entity::Member(id),
+            vec![
+                set(Field::Name, json(display_name)),
+                set(Field::Status, sync::status_value(MemberStatus::Active)),
+            ],
         )?;
         Ok(id)
     }
 
-    /// Members ordered by creation.
+    /// Members ordered by creation. A deleted member still used by a live
+    /// transaction (a concurrent edit on another device) shows as inactive.
     ///
     /// # Errors
     /// SQLite errors or corrupt rows.
     pub fn members(&self, group: GroupId) -> Result<Vec<Member>> {
         self.conn
-            .prepare_cached("SELECT id, display_name, status FROM members WHERE group_id = ?1 ORDER BY created_at, id")?
+            .prepare_cached(
+                "SELECT id, display_name, CASE WHEN deleted_at IS NULL THEN status ELSE 'inactive' END
+                 FROM members m WHERE group_id = ?1 AND (
+                     deleted_at IS NULL
+                     OR EXISTS (SELECT 1 FROM transactions t WHERE t.payer_id = m.id AND t.deleted_at IS NULL)
+                     OR EXISTS (SELECT 1 FROM item_shares s JOIN transactions t ON t.id = s.transaction_id
+                                WHERE s.member_id = m.id AND t.deleted_at IS NULL))
+                 ORDER BY created_at, id",
+            )?
             .query_map([group.0], |r| Ok((r.get::<_, Uuid>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))?
             .map(|row| {
                 let (id, display_name, status) = row?;
@@ -345,14 +395,24 @@ impl Store {
     /// # Errors
     /// [`StoreError::NotFound`] for an unknown member.
     pub fn set_member_status(&self, member: MemberId, status: MemberStatus) -> Result<()> {
-        let s = match status {
-            MemberStatus::Active => "active",
-            MemberStatus::Inactive => "inactive",
-        };
-        expect_one(self.conn.execute(
-            "UPDATE members SET status = ?2 WHERE id = ?1",
-            params![member.0, s],
-        )?)
+        let group = self.member_group(member)?;
+        self.write(
+            group,
+            Entity::Member(member),
+            vec![set(Field::Status, sync::status_value(status))],
+        )
+    }
+
+    fn member_group(&self, member: MemberId) -> Result<GroupId> {
+        self.conn
+            .query_row(
+                "SELECT group_id FROM members WHERE id = ?1 AND deleted_at IS NULL",
+                [member.0],
+                |r| r.get(0),
+            )
+            .optional()?
+            .map(GroupId)
+            .ok_or(StoreError::NotFound)
     }
 
     /// # Errors
@@ -368,10 +428,8 @@ impl Store {
         if used {
             return Err(StoreError::MemberHasHistory);
         }
-        expect_one(
-            self.conn
-                .execute("DELETE FROM members WHERE id = ?1", [member.0])?,
-        )
+        let group = self.member_group(member)?;
+        self.write(group, Entity::Member(member), vec![Change::Delete])
     }
 
     /// Inserts or replaces a transaction after validating it: members known
@@ -387,57 +445,27 @@ impl Store {
             .into_iter()
             .map(|m| (m.id, m.status))
             .collect();
-        validate(t, &group, &statuses)?;
+        validate(t, group.base_currency, &statuses)?;
 
-        let now = now_ms();
-        let tx = self.conn.transaction()?;
-        let owner: Option<Uuid> = tx
+        let owner: Option<Uuid> = self
+            .conn
             .query_row(
                 "SELECT group_id FROM transactions WHERE id = ?1",
                 [t.id.0],
                 |r| r.get(0),
             )
             .optional()?;
-        if owner.is_some_and(|g| g != t.group.0) {
+        // Deletes are final (ADR 0004): a deleted transaction can't be saved again.
+        if owner.is_some_and(|g| g != t.group.0)
+            || sync::is_deleted(&self.conn, t.group, Entity::Transaction(t.id))?
+        {
             return Err(StoreError::NotFound);
         }
-        tx.execute(
-            "INSERT INTO transactions (id, group_id, kind, title, payer_id, currency, fx_rate, date_days, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)
-             ON CONFLICT (id) DO UPDATE SET kind = ?3, title = ?4, payer_id = ?5, currency = ?6, fx_rate = ?7,
-                 date_days = ?8, updated_at = ?9, deleted_at = NULL",
-            params![
-                t.id.0,
-                t.group.0,
-                t.kind.as_str(),
-                t.title,
-                t.payer.0,
-                t.currency.code(),
-                t.fx_rate.map(|r| r.value().to_string()),
-                t.date_days,
-                now
-            ],
-        )?;
-        tx.execute("DELETE FROM items WHERE transaction_id = ?1", [t.id.0])?;
-        {
-            let mut item_stmt =
-                tx.prepare_cached("INSERT INTO items (transaction_id, position, label, total_minor) VALUES (?1, ?2, ?3, ?4)")?;
-            let mut share_stmt = tx.prepare_cached(
-                "INSERT INTO item_shares (transaction_id, position, member_id, parts, amount_minor) VALUES (?1, ?2, ?3, ?4, ?5)",
-            )?;
-            for (pos, item) in (0_u32..).zip(&t.items) {
-                item_stmt.execute(params![t.id.0, pos, item.label, item.total])?;
-                for s in &item.shares {
-                    let (parts, amount) = match s.portion {
-                        Portion::Parts(w) => (Some(w), None),
-                        Portion::Amount(a) => (None, Some(a)),
-                    };
-                    share_stmt.execute(params![t.id.0, pos, s.member.0, parts, amount])?;
-                }
-            }
-        }
-        tx.commit()?;
-        Ok(())
+        self.write(
+            t.group,
+            Entity::Transaction(t.id),
+            vec![set(Field::Body, sync::body(t))],
+        )
     }
 
     /// Marks a transaction deleted (a tombstone kept for sync).
@@ -445,12 +473,66 @@ impl Store {
     /// # Errors
     /// [`StoreError::NotFound`] if it doesn't exist or is already deleted.
     pub fn delete_transaction(&self, id: TransactionId) -> Result<()> {
-        expect_one(self.conn.execute(
-            "UPDATE transactions SET deleted_at = ?2, updated_at = ?2 WHERE id = ?1 AND deleted_at IS NULL",
-            params![id.0, now_ms()],
-        )?)
+        let group: Uuid = self
+            .conn
+            .query_row(
+                "SELECT group_id FROM transactions WHERE id = ?1 AND deleted_at IS NULL",
+                [id.0],
+                |r| r.get(0),
+            )
+            .optional()?
+            .ok_or(StoreError::NotFound)?;
+        self.write(
+            GroupId(group),
+            Entity::Transaction(id),
+            vec![Change::Delete],
+        )
     }
 
+    /// This install's sync identity.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn device_id(&self) -> Result<DeviceId> {
+        Ok(sync::clock(&self.conn)?.0.device())
+    }
+
+    /// Merges ops from other devices, in any order and with duplicates, and
+    /// rebuilds the groups they touch. Returns how many ops were new.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn apply_remote(&mut self, ops: &[SyncOp]) -> Result<usize> {
+        let tx = self.conn.transaction()?;
+        let n = sync::apply_remote(&tx, ops)?;
+        tx.commit()?;
+        Ok(n)
+    }
+
+    /// Local ops the server hasn't acknowledged yet, oldest first.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn pending_ops(&self, limit: u32) -> Result<Vec<SyncOp>> {
+        sync::pending(&self.conn, limit)
+    }
+
+    /// # Errors
+    /// SQLite errors.
+    pub fn mark_pushed(&mut self, ids: &[OpId]) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        sync::mark_pushed(&tx, ids)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Every op of a group, oldest first.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn group_ops(&self, group: GroupId) -> Result<Vec<SyncOp>> {
+        sync::group_ops(&self.conn, group)
+    }
     /// Live transactions of a group, newest date first.
     ///
     /// # Errors
@@ -474,7 +556,9 @@ impl Store {
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
-        rows.into_iter().map(|row| self.load(group, row)).collect()
+        rows.into_iter()
+            .map(|row| load_row(&self.conn, group, row))
+            .collect()
     }
 
     /// Balances and settle-up suggestions in the group's base currency.
@@ -531,60 +615,86 @@ impl Store {
             suggestions,
         })
     }
+}
 
-    fn load(&self, group: GroupId, row: TxRow) -> Result<Transaction> {
-        let mut items: Vec<Item> = self
-            .conn
-            .prepare_cached(
-                "SELECT label, total_minor FROM items WHERE transaction_id = ?1 ORDER BY position",
-            )?
-            .query_map([row.id], |r| {
-                Ok(Item {
-                    label: r.get(0)?,
-                    total: r.get(1)?,
-                    shares: Vec::new(),
+/// A transaction's rows, deleted or not.
+pub(crate) fn load_transaction(
+    conn: &Connection,
+    group: GroupId,
+    id: TransactionId,
+) -> Result<Transaction> {
+    let row = conn
+        .query_row(
+            "SELECT id, kind, title, payer_id, currency, fx_rate, date_days FROM transactions WHERE id = ?1",
+            [id.0],
+            |r| {
+                Ok(TxRow {
+                    id: r.get(0)?,
+                    kind: r.get(1)?,
+                    title: r.get(2)?,
+                    payer: r.get(3)?,
+                    currency: r.get(4)?,
+                    fx_rate: r.get(5)?,
+                    date_days: r.get(6)?,
                 })
-            })?
-            .collect::<rusqlite::Result<_>>()?;
-        let mut stmt = self.conn.prepare_cached(
+            },
+        )
+        .optional()?
+        .ok_or(StoreError::NotFound)?;
+    load_row(conn, group, row)
+}
+
+fn load_row(conn: &Connection, group: GroupId, row: TxRow) -> Result<Transaction> {
+    let mut items: Vec<Item> = conn
+        .prepare_cached(
+            "SELECT label, total_minor FROM items WHERE transaction_id = ?1 ORDER BY position",
+        )?
+        .query_map([row.id], |r| {
+            Ok(Item {
+                label: r.get(0)?,
+                total: r.get(1)?,
+                shares: Vec::new(),
+            })
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    let mut stmt = conn.prepare_cached(
             "SELECT position, member_id, parts, amount_minor FROM item_shares WHERE transaction_id = ?1 ORDER BY position, rowid",
         )?;
-        let shares = stmt.query_map([row.id], |r| {
-            Ok((
-                r.get::<_, u32>(0)?,
-                r.get::<_, Uuid>(1)?,
-                r.get::<_, Option<u32>>(2)?,
-                r.get::<_, Option<Minor>>(3)?,
-            ))
-        })?;
-        for share in shares {
-            let (pos, member, parts, amount) = share?;
-            let portion = match (parts, amount) {
-                (Some(w), None) => Portion::Parts(w),
-                (None, Some(a)) => Portion::Amount(a),
-                _ => return Err(StoreError::Corrupt("share without a single portion".into())),
-            };
-            items
-                .get_mut(pos as usize)
-                .ok_or_else(|| StoreError::Corrupt("share for a missing item".into()))?
-                .shares
-                .push(ItemShare {
-                    member: MemberId(member),
-                    portion,
-                });
-        }
-        Ok(Transaction {
-            id: TransactionId(row.id),
-            group,
-            kind: TransactionKind::parse(&row.kind)?,
-            title: row.title,
-            payer: MemberId(row.payer),
-            currency: Currency::from_code(&row.currency)?,
-            fx_rate: row.fx_rate.as_deref().map(FxRate::from_str).transpose()?,
-            date_days: row.date_days,
-            items,
-        })
+    let shares = stmt.query_map([row.id], |r| {
+        Ok((
+            r.get::<_, u32>(0)?,
+            r.get::<_, Uuid>(1)?,
+            r.get::<_, Option<u32>>(2)?,
+            r.get::<_, Option<Minor>>(3)?,
+        ))
+    })?;
+    for share in shares {
+        let (pos, member, parts, amount) = share?;
+        let portion = match (parts, amount) {
+            (Some(w), None) => Portion::Parts(w),
+            (None, Some(a)) => Portion::Amount(a),
+            _ => return Err(StoreError::Corrupt("share without a single portion".into())),
+        };
+        items
+            .get_mut(pos as usize)
+            .ok_or_else(|| StoreError::Corrupt("share for a missing item".into()))?
+            .shares
+            .push(ItemShare {
+                member: MemberId(member),
+                portion,
+            });
     }
+    Ok(Transaction {
+        id: TransactionId(row.id),
+        group,
+        kind: TransactionKind::parse(&row.kind)?,
+        title: row.title,
+        payer: MemberId(row.payer),
+        currency: Currency::from_code(&row.currency)?,
+        fx_rate: row.fx_rate.as_deref().map(FxRate::from_str).transpose()?,
+        date_days: row.date_days,
+        items,
+    })
 }
 
 struct TxRow {
@@ -599,10 +709,10 @@ struct TxRow {
 
 fn validate(
     t: &Transaction,
-    group: &Group,
+    base_currency: Currency,
     members: &BTreeMap<MemberId, MemberStatus>,
 ) -> Result<()> {
-    match (t.currency == group.base_currency, t.fx_rate.is_some()) {
+    match (t.currency == base_currency, t.fx_rate.is_some()) {
         (false, false) => return Err(StoreError::MissingRate),
         (true, true) => return Err(StoreError::UnexpectedRate),
         _ => {}
@@ -686,19 +796,18 @@ fn rescale_amounts(item: &Item, converted_total: Minor) -> Vec<ItemShare> {
         .collect()
 }
 
+fn status_str(status: MemberStatus) -> &'static str {
+    match status {
+        MemberStatus::Active => "active",
+        MemberStatus::Inactive => "inactive",
+    }
+}
+
 fn parse_status(s: &str) -> Result<MemberStatus> {
     match s {
         "active" => Ok(MemberStatus::Active),
         "inactive" => Ok(MemberStatus::Inactive),
         _ => Err(StoreError::Corrupt(format!("member status {s:?}"))),
-    }
-}
-
-fn expect_one(changed: usize) -> Result<()> {
-    if changed == 0 {
-        Err(StoreError::NotFound)
-    } else {
-        Ok(())
     }
 }
 

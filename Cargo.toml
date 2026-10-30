@@ -21,6 +21,8 @@ dibill-store = { path = "crates/dibill-store", version = "0.1.0" }
 dibill-sync = { path = "crates/dibill-sync", version = "0.1.0" }
 thiserror = "2"
 uuid = { version = "1", features = ["v7"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 proptest = "1"
 rusqlite = { version = "0.41", default-features = false, features = ["bundled", "cache", "uuid"] }
 tempfile = "3"

@@ -259,7 +259,7 @@ impl Core {
     }
 
     /// # Errors
-    /// [`CoreError::InvalidInput`] for an unknown group.
+    /// [`CoreError::NotFound`] for an unknown group.
     pub fn add_member(&self, group_id: String, display_name: String) -> Result<String, CoreError> {
         let id = self
             .store()
