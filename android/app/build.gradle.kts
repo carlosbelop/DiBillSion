@@ -20,12 +20,18 @@ android {
 
     buildTypes {
         debug {
-            // A dev server on this computer, reached through `adb reverse tcp:8080 tcp:8080`.
-            buildConfigField("String", "SYNC_URL", "\"http://127.0.0.1:8080\"")
+            // A dev server on this computer, reached through `adb reverse tcp:8080 tcp:8080`,
+            // unless `dibill.debugSyncUrl` points debug builds at a real server (the beta one).
+            val syncUrl = providers.gradleProperty("dibill.debugSyncUrl").getOrElse("http://127.0.0.1:8080")
+            buildConfigField("String", "SYNC_URL", "\"$syncUrl\"")
         }
         release {
-            // Empty until hosting is decided (owner): sharing says sync isn't set up.
-            buildConfigField("String", "SYNC_URL", "\"\"")
+            // The beta server, kept out of the public repo: Gradle property `dibill.syncUrl`
+            // (e.g. in ~/.gradle/gradle.properties) or DIBILL_SYNC_URL. Empty: no server.
+            val syncUrl = providers.gradleProperty("dibill.syncUrl")
+                .orElse(providers.environmentVariable("DIBILL_SYNC_URL"))
+                .getOrElse("")
+            buildConfigField("String", "SYNC_URL", "\"$syncUrl\"")
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
