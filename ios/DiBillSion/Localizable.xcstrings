@@ -1,0 +1,1159 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ (you)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (tú)"
+          }
+        }
+      }
+    },
+    "%@ paid back %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ devolvió dinero a %2$@"
+          }
+        }
+      }
+    },
+    "%@ pays %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ paga a %2$@"
+          }
+        }
+      }
+    },
+    "%@ pays you": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ te paga"
+          }
+        }
+      }
+    },
+    "%lld people": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld person"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld people"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld persona"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld personas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld people · Shared": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld person · Shared"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld people · Shared"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld persona · Compartido"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld personas · Compartido"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "About %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unos %@"
+          }
+        }
+      }
+    },
+    "Add": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir"
+          }
+        }
+      }
+    },
+    "Add expense": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir gasto"
+          }
+        }
+      }
+    },
+    "Add person": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir persona"
+          }
+        }
+      }
+    },
+    "Add someone else": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir a alguien más"
+          }
+        }
+      }
+    },
+    "Add what someone paid and it will be split among the group.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añade lo que alguien pagó y se repartirá en el grupo."
+          }
+        }
+      }
+    },
+    "Amount": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importe"
+          }
+        }
+      }
+    },
+    "Archive group": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivar grupo"
+          }
+        }
+      }
+    },
+    "Archived": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivados"
+          }
+        }
+      }
+    },
+    "Balances": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saldos"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelar"
+          }
+        }
+      }
+    },
+    "Change who I am": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambiar quién soy"
+          }
+        }
+      }
+    },
+    "Couldn’t save to this device. Try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se ha podido guardar en este dispositivo. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Couple": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pareja"
+          }
+        }
+      }
+    },
+    "Create": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crear"
+          }
+        }
+      }
+    },
+    "Create a group for a trip, a shared flat or a dinner, add the people, and DiBillSion keeps the accounts exact to the cent.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crea un grupo para un viaje, un piso compartido o una cena, añade a la gente y DiBillSion lleva las cuentas exactas al céntimo."
+          }
+        }
+      }
+    },
+    "Currency": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moneda"
+          }
+        }
+      }
+    },
+    "Date": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fecha"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar"
+          }
+        }
+      }
+    },
+    "Delete group": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar grupo"
+          }
+        }
+      }
+    },
+    "Delete “%@”?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Borrar «%@»?"
+          }
+        }
+      }
+    },
+    "Description": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descripción"
+          }
+        }
+      }
+    },
+    "DiBillSion": {
+      "shouldTranslate": false
+    },
+    "Discard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar"
+          }
+        }
+      }
+    },
+    "Discard what you have entered?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Descartar lo que has escrito?"
+          }
+        }
+      }
+    },
+    "Emoji (optional)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emoji (opcional)"
+          }
+        }
+      }
+    },
+    "Enter a valid positive amount.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduce un importe positivo válido."
+          }
+        }
+      }
+    },
+    "Enter the exchange rate.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduce el tipo de cambio."
+          }
+        }
+      }
+    },
+    "Event": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evento"
+          }
+        }
+      }
+    },
+    "Everyone": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos"
+          }
+        }
+      }
+    },
+    "Everyone is square.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estáis en paz."
+          }
+        }
+      }
+    },
+    "Expenses": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gastos"
+          }
+        }
+      }
+    },
+    "Group name": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre del grupo"
+          }
+        }
+      }
+    },
+    "Group spending": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gasto del grupo"
+          }
+        }
+      }
+    },
+    "Home": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Casa"
+          }
+        }
+      }
+    },
+    "Invite link or code": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enlace o código de invitación"
+          }
+        }
+      }
+    },
+    "Invite people": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitar"
+          }
+        }
+      }
+    },
+    "Its expenses, balances and people are removed from this device. This can’t be undone.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sus gastos, saldos y personas se eliminan de este dispositivo. No se puede deshacer."
+          }
+        }
+      }
+    },
+    "Join": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unirse"
+          }
+        }
+      }
+    },
+    "Join a group": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unirse a un grupo"
+          }
+        }
+      }
+    },
+    "Join “%@” on DiBillSion: %@ (invite code: %@)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Únete a «%1$@» en DiBillSion: %2$@ (código de invitación: %3$@)"
+          }
+        }
+      }
+    },
+    "Mark as paid": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcar como pagado"
+          }
+        }
+      }
+    },
+    "More options": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más opciones"
+          }
+        }
+      }
+    },
+    "Name": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre"
+          }
+        }
+      }
+    },
+    "New expense": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo gasto"
+          }
+        }
+      }
+    },
+    "New group": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo grupo"
+          }
+        }
+      }
+    },
+    "No connection. Your changes are saved on this phone and will sync later.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin conexión. Tus cambios están guardados en este móvil y se sincronizarán más tarde."
+          }
+        }
+      }
+    },
+    "No expenses yet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay gastos"
+          }
+        }
+      }
+    },
+    "No one": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nadie"
+          }
+        }
+      }
+    },
+    "Not in new expenses": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No participa en gastos nuevos"
+          }
+        }
+      }
+    },
+    "Not now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora no"
+          }
+        }
+      }
+    },
+    "OK": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceptar"
+          }
+        }
+      }
+    },
+    "Only the person who shared this group can do that.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo quien compartió este grupo puede hacer eso."
+          }
+        }
+      }
+    },
+    "Other": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otro"
+          }
+        }
+      }
+    },
+    "Paid by": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pagado por"
+          }
+        }
+      }
+    },
+    "Paid by %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pagado por %@"
+          }
+        }
+      }
+    },
+    "Paste the invite link or code someone sent you.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pega el enlace o el código de invitación que te han enviado."
+          }
+        }
+      }
+    },
+    "Payments": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pagos"
+          }
+        }
+      }
+    },
+    "People": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personas"
+          }
+        }
+      }
+    },
+    "Person %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Persona %lld"
+          }
+        }
+      }
+    },
+    "Pick at least one person.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige al menos una persona."
+          }
+        }
+      }
+    },
+    "Pick yourself so DiBillSion can show what you owe and are owed. Only this phone remembers it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige tu nombre para que DiBillSion te muestre lo que debes y lo que te deben. Solo lo recuerda este móvil."
+          }
+        }
+      }
+    },
+    "Project": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proyecto"
+          }
+        }
+      }
+    },
+    "Rate: 1 %@ = ? %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambio: 1 %1$@ = ? %2$@"
+          }
+        }
+      }
+    },
+    "Received by %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recibido por %@"
+          }
+        }
+      }
+    },
+    "Record that %@ paid %@ to %@?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Anotar que %1$@ pagó %2$@ a %3$@?"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar"
+          }
+        }
+      }
+    },
+    "Remove %@ from the group?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Quitar a %@ del grupo?"
+          }
+        }
+      }
+    },
+    "Restore group": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recuperar grupo"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar"
+          }
+        }
+      }
+    },
+    "Settle": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saldar"
+          }
+        }
+      }
+    },
+    "Shared": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartido"
+          }
+        }
+      }
+    },
+    "Someone in this expense no longer takes part in new expenses.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alguien de este gasto ya no participa en gastos nuevos."
+          }
+        }
+      }
+    },
+    "Something in the form isn’t valid.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay algún dato del formulario que no es válido."
+          }
+        }
+      }
+    },
+    "Split equally": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repartir a partes iguales"
+          }
+        }
+      }
+    },
+    "Split your first bill": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reparte tu primera cuenta"
+          }
+        }
+      }
+    },
+    "Suggested payments": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pagos sugeridos"
+          }
+        }
+      }
+    },
+    "Takes part in new expenses": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Participa en gastos nuevos"
+          }
+        }
+      }
+    },
+    "That invite link isn’t valid any more. Ask for a new one.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ese enlace de invitación ya no es válido. Pide uno nuevo."
+          }
+        }
+      }
+    },
+    "That item no longer exists.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ese elemento ya no existe."
+          }
+        }
+      }
+    },
+    "That person isn’t in this group.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esa persona no está en este grupo."
+          }
+        }
+      }
+    },
+    "The exchange rate must be a number greater than zero.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El tipo de cambio debe ser un número mayor que cero."
+          }
+        }
+      }
+    },
+    "The invite link is off. Inviting again creates a new link.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El enlace de invitación está desactivado. Si invitas de nuevo se crea uno nuevo."
+          }
+        }
+      }
+    },
+    "The server couldn’t handle that right now. Try again in a moment.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servidor no ha podido atenderlo ahora. Inténtalo de nuevo en un momento."
+          }
+        }
+      }
+    },
+    "The split doesn’t add up. Check the amounts and who is included.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El reparto no cuadra. Revisa los importes y quién participa."
+          }
+        }
+      }
+    },
+    "This person already appears in expenses, so they can’t be removed. Deactivate them instead.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta persona ya aparece en gastos y no se puede quitar. Desactívala en su lugar."
+          }
+        }
+      }
+    },
+    "This version of the app isn’t connected to a sync server yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta versión de la app aún no está conectada a un servidor de sincronización."
+          }
+        }
+      }
+    },
+    "Three-letter code. Balances are shown in this currency.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código de tres letras. Los saldos se muestran en esta moneda."
+          }
+        }
+      }
+    },
+    "Today": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hoy"
+          }
+        }
+      }
+    },
+    "Trip": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Viaje"
+          }
+        }
+      }
+    },
+    "Turn off invite link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desactivar enlace de invitación"
+          }
+        }
+      }
+    },
+    "Use a three-letter currency code, such as EUR or USD.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa un código de moneda de tres letras, como EUR o USD."
+          }
+        }
+      }
+    },
+    "What is it for?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Para qué es?"
+          }
+        }
+      }
+    },
+    "Who are you?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Quién eres?"
+          }
+        }
+      }
+    },
+    "Who is up, who is down": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quién recibe, quién debe"
+          }
+        }
+      }
+    },
+    "Yesterday": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayer"
+          }
+        }
+      }
+    },
+    "You are all square": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estás en paz"
+          }
+        }
+      }
+    },
+    "You are owed %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te deben %@"
+          }
+        }
+      }
+    },
+    "You owe %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Debes %@"
+          }
+        }
+      }
+    },
+    "You pay %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pagas a %@"
+          }
+        }
+      }
+    },
+    "Your balance": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu saldo"
+          }
+        }
+      }
+    },
+    "Your groups": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus grupos"
+          }
+        }
+      }
+    },
+    "Your name": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu nombre"
+          }
+        }
+      }
+    },
+    "“%@” isn’t a currency we know. Use a three-letter code such as EUR.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No reconocemos la moneda «%@». Usa un código de tres letras, como EUR."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -1,0 +1,70 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ios/**
+      - crates/**
+      - Cargo.toml
+      - Cargo.lock
+      - scripts/build-xcframework.sh
+      - scripts/gen-bindings.sh
+      - .github/workflows/ios.yml
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - ios/**
+      - crates/**
+      - Cargo.toml
+      - Cargo.lock
+      - scripts/build-xcframework.sh
+      - scripts/gen-bindings.sh
+      - .github/workflows/ios.yml
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ios:
+    name: iOS (XCFramework, SwiftUI build, unit tests)
+    # macOS minutes cost 10x on a private repo: there it runs only on demand
+    # (manual dispatch, or a PR labelled `macos`). Once the repo is public it always runs.
+    if: >-
+      !github.event.repository.private
+      || github.event_name == 'workflow_dispatch'
+      || contains(github.event.pull_request.labels.*.name, 'macos')
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+      - run: brew install xcodegen
+      - run: scripts/build-xcframework.sh --sim
+      - run: cd ios && xcodegen
+      - name: Unit tests on the simulator
+        run: |
+          udid=$(xcrun simctl list devices available -j \
+            | jq -r '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[]
+                      | select(.name | startswith("iPhone"))][0].udid')
+          echo "Simulator: $udid"
+          xcodebuild test -project ios/DiBillSion.xcodeproj -scheme DiBillSion \
+            -destination "id=$udid" -resultBundlePath build/tests.xcresult \
+            CODE_SIGNING_ALLOWED=NO | xcbeautify --renderer github-actions
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: ios-test-results
+          path: build/tests.xcresult
+          retention-days: 7
