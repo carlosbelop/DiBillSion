@@ -51,3 +51,6 @@ ios/DiBillSion/Info.plist
 Thumbs.db
 *.swp
 deploy/backups/
+
+# Python bytecode
+__pycache__/
