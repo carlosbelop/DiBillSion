@@ -5,9 +5,19 @@ shape the model must return (see `crates/dibill-receipt`, [ADR 0008](../../docs/
 The harness runs every model on every image here and scores it against these files:
 
 ```bash
+# Claude: the key lives in a file outside the repo (chmod 600) holding
+#   export ANTHROPIC_API_KEY=sk-ant-...
+source ~/.config/dibillsion/receipt.env
+cargo run -p dibill-receipt --features eval --bin receipt-eval -- --api anthropic \
+  --model claude-opus-5-5@4,20 --model claude-sonnet-5-5@2,10 --model claude-haiku-5-5@0.10,0.50
+
+# Any OpenAI-compatible provider:
 RECEIPT_API_KEY=... cargo run -p dibill-receipt --features eval --bin receipt-eval -- \
   --base-url https://openrouter.ai/api/v1 --model google/gemini-2.5-flash --model openai/gpt-5-mini
 ```
+
+`@in,out` are USD per million input/output tokens, for the cost column (Claude doesn't report
+cost per request). Every run spends real credit: roughly a cent or two per receipt and model.
 
 ## Adding a receipt
 

@@ -5,21 +5,41 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use dibill_domain::Currency;
 
+use crate::anthropic;
 use crate::model::ModelReceipt;
 use crate::normalize::check;
-use crate::openai::{
-    OutputMode, Repair, Usage, describe, parse_receipt, parse_response, request_body,
-};
+use crate::openai::{self, OutputMode, Repair, Usage, describe, parse_receipt};
+
+/// Which protocol the provider speaks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Api {
+    /// `POST {base}/chat/completions`, bearer key, asking for JSON the given way.
+    OpenAi(OutputMode),
+    /// Claude's Messages API: `POST {base}/messages`, `x-api-key`, structured output.
+    Anthropic,
+}
+
+impl Api {
+    /// `openai` (with `mode`) or `anthropic`.
+    #[must_use]
+    pub fn parse(name: &str, mode: OutputMode) -> Option<Self> {
+        match name {
+            "openai" => Some(Self::OpenAi(mode)),
+            "anthropic" => Some(Self::Anthropic),
+            _ => None,
+        }
+    }
+}
 
 /// Which provider and model to call.
 #[derive(Debug, Clone)]
 pub struct ProviderConfig {
-    /// Up to and including the version, e.g. `https://openrouter.ai/api/v1`; `/chat/completions`
-    /// is appended.
+    pub api: Api,
+    /// Up to and including the version, e.g. `https://openrouter.ai/api/v1` or
+    /// [`anthropic::BASE_URL`]; the protocol's path is appended.
     pub base_url: String,
     pub api_key: String,
     pub model: String,
-    pub mode: OutputMode,
     /// Per request.
     pub timeout: Duration,
 }
@@ -88,11 +108,11 @@ impl Scanner {
         fallback: Currency,
     ) -> Result<ScanOutcome, ScanError> {
         let started = Instant::now();
-        let url = format!("data:{mime};base64,{}", STANDARD.encode(image));
+        let encoded = STANDARD.encode(image);
         let mut usage = Usage::default();
         let mut raw = Vec::new();
 
-        let (first, first_usage) = self.complete(&url, None).await?;
+        let (first, first_usage) = self.complete(&encoded, mime, None).await?;
         usage.add(&first_usage);
         raw.push(first.clone());
         let parsed = parse_receipt(&first);
@@ -113,7 +133,7 @@ impl Scanner {
             previous: &first,
             problems: &problems,
         };
-        let (second, second_usage) = self.complete(&url, Some(&repair)).await?;
+        let (second, second_usage) = self.complete(&encoded, mime, Some(&repair)).await?;
         usage.add(&second_usage);
         raw.push(second.clone());
         let receipt = match (parsed, parse_receipt(&second)) {
@@ -144,19 +164,31 @@ impl Scanner {
 
     async fn complete(
         &self,
-        image_url: &str,
+        image_base64: &str,
+        mime: &str,
         repair: Option<&Repair<'_>>,
     ) -> Result<(String, Usage), ScanError> {
-        let body = request_body(&self.config.model, self.config.mode, image_url, repair);
-        let response = self
-            .http
-            .post(format!(
-                "{}/chat/completions",
-                self.config.base_url.trim_end_matches('/')
-            ))
-            .bearer_auth(&self.config.api_key)
+        let base = self.config.base_url.trim_end_matches('/');
+        let request = match self.config.api {
+            Api::OpenAi(mode) => {
+                let url = format!("data:{mime};base64,{image_base64}");
+                self.http
+                    .post(format!("{base}/chat/completions"))
+                    .bearer_auth(&self.config.api_key)
+                    .body(openai::request_body(&self.config.model, mode, &url, repair).to_string())
+            }
+            Api::Anthropic => self
+                .http
+                .post(format!("{base}/messages"))
+                .header("x-api-key", &self.config.api_key)
+                .header("anthropic-version", anthropic::API_VERSION)
+                .body(
+                    anthropic::request_body(&self.config.model, image_base64, mime, repair)
+                        .to_string(),
+                ),
+        };
+        let response = request
             .header("content-type", "application/json")
-            .body(body.to_string())
             .send()
             .await
             .map_err(|e| ScanError::Network(e.to_string()))?;
@@ -171,6 +203,9 @@ impl Scanner {
                 body: text.chars().take(500).collect(),
             });
         }
-        Ok(parse_response(&text)?)
+        Ok(match self.config.api {
+            Api::OpenAi(_) => openai::parse_response(&text)?,
+            Api::Anthropic => anthropic::parse_response(&text)?,
+        })
     }
 }

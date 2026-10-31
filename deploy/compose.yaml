@@ -32,6 +32,7 @@ services:
       DATABASE_URL: postgres://dibill:${POSTGRES_PASSWORD}@db:5432/dibill
       RUST_LOG: ${RUST_LOG:-info}
       # Receipt scanning (README §4); off while these are empty.
+      RECEIPT_API: ${RECEIPT_API:-}
       RECEIPT_API_BASE: ${RECEIPT_API_BASE:-}
       RECEIPT_API_KEY: ${RECEIPT_API_KEY:-}
       RECEIPT_MODEL: ${RECEIPT_MODEL:-}

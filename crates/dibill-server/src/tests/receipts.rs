@@ -7,8 +7,8 @@ use axum::http::{Method, StatusCode};
 use axum::routing::post;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use dibill_receipt::ProviderConfig;
 use dibill_receipt::openai::OutputMode;
+use dibill_receipt::{Api, ProviderConfig};
 use serde_json::{Value, json};
 
 use super::TestDb;
@@ -48,7 +48,7 @@ async fn fake_provider(daily: u32, monthly: u32) -> Receipts {
             base_url: format!("http://{addr}/v1"),
             api_key: "key".into(),
             model: "fake-vision".into(),
-            mode: OutputMode::JsonSchema,
+            api: Api::OpenAi(OutputMode::JsonSchema),
             timeout: Duration::from_secs(10),
         },
         daily,

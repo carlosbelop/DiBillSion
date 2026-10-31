@@ -4,10 +4,15 @@
 //! RECEIPT_API_KEY=... cargo run -p dibill-receipt --features eval --bin receipt-eval -- \
 //!     --base-url https://openrouter.ai/api/v1 \
 //!     --model google/gemini-2.5-flash --model openai/gpt-5-mini@0.25,2.00
+//!
+//! # Claude's Messages API (key from RECEIPT_API_KEY or ANTHROPIC_API_KEY):
+//! cargo run -p dibill-receipt --features eval --bin receipt-eval -- --api anthropic \
+//!     --model claude-opus-5-5@4,20 --model claude-sonnet-5-5@2,10 --model claude-haiku-5-5@0.10,0.50
 //! ```
 //!
 //! `--model name@in,out` gives prices in USD per million input/output tokens, used when the
-//! provider doesn't report the cost itself. Other options: `--mode json_schema|json_object|prompt`,
+//! provider doesn't report the cost itself. Other options: `--api openai|anthropic` (default
+//! `openai`; `--base-url` defaults to Anthropic's for `anthropic`), `--mode json_schema|json_object|prompt`,
 //! `--set <dir>` (default `eval/receipts`), `--only <name>` (repeatable), `--jobs <n>` (default 4),
 //! `--out <dir>` (default `target/receipt-eval/<unix time>`), `--timeout <seconds>` (default 120).
 //! Raw answers land in `<out>/<model>/<receipt>.txt`, the report in `<out>/report.md`.
@@ -21,7 +26,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use dibill_domain::Currency;
 use dibill_receipt::eval::{Score, score};
 use dibill_receipt::openai::OutputMode;
-use dibill_receipt::{ModelReceipt, ProviderConfig, ScanOutcome, Scanner};
+use dibill_receipt::{Api, ModelReceipt, ProviderConfig, ScanOutcome, Scanner};
 use rust_decimal::Decimal;
 use tokio::sync::Semaphore;
 
@@ -38,7 +43,7 @@ struct ModelSpec {
 struct Args {
     base_url: String,
     models: Vec<ModelSpec>,
-    mode: OutputMode,
+    api: Api,
     set: PathBuf,
     only: Vec<String>,
     jobs: usize,
@@ -69,7 +74,13 @@ struct Run {
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let args = parse_args(std::env::args().skip(1).collect())?;
-    let api_key = std::env::var("RECEIPT_API_KEY").map_err(|_| "RECEIPT_API_KEY is not set")?;
+    let key = |name: &str| std::env::var(name).ok().filter(|k| !k.trim().is_empty());
+    let api_key = key("RECEIPT_API_KEY")
+        .or_else(|| match args.api {
+            Api::Anthropic => key("ANTHROPIC_API_KEY"),
+            Api::OpenAi(_) => None,
+        })
+        .ok_or("set RECEIPT_API_KEY (or ANTHROPIC_API_KEY with --api anthropic)")?;
     let cases = load_cases(&args.set, &args.only)?;
     if cases.is_empty() {
         return Err(format!("no receipts in {}", args.set.display()).into());
@@ -78,13 +89,13 @@ async fn main() -> Result<(), Error> {
     let cases = Arc::new(cases);
 
     let mut report = format!(
-        "# Receipt eval\n\n{} receipts from `{}`, provider `{}`, mode {:?}.\n\n\
+        "# Receipt eval\n\n{} receipts from `{}`, provider `{}`, API {:?}.\n\n\
          | Model | Parsed | Total exact | Adds up | Items exact | Item recall | Item precision | Labels | Merchant | Date | Retries | p50 s | p95 s | Tokens in/out | Cost per receipt |\n\
          |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n",
         cases.len(),
         args.set.display(),
         args.base_url,
-        args.mode
+        args.api
     );
     let mut details = String::new();
     for spec in &args.models {
@@ -136,10 +147,10 @@ async fn run_model(
     cases: &Arc<Vec<Case>>,
 ) -> Result<Vec<Run>, Error> {
     let scanner = Scanner::new(ProviderConfig {
+        api: args.api,
         base_url: args.base_url.clone(),
         api_key: api_key.to_owned(),
         model: spec.name.clone(),
-        mode: args.mode,
         timeout: args.timeout,
     })?;
     let dir = args.out.join(spec.name.replace(['/', ':'], "_"));
@@ -376,13 +387,15 @@ fn parse_args(raw: Vec<String>) -> Result<Args, Error> {
     let mut args = Args {
         base_url: String::new(),
         models: Vec::new(),
-        mode: OutputMode::JsonSchema,
+        api: Api::OpenAi(OutputMode::JsonSchema),
         set: PathBuf::from("eval/receipts"),
         only: Vec::new(),
         jobs: 4,
         out: PathBuf::from(format!("target/receipt-eval/{stamp}")),
         timeout: Duration::from_secs(120),
     };
+    let mut api_name = "openai".to_owned();
+    let mut mode = OutputMode::JsonSchema;
     let mut it = raw.into_iter();
     while let Some(flag) = it.next() {
         let mut value = || it.next().ok_or_else(|| format!("{flag} needs a value"));
@@ -404,8 +417,9 @@ fn parse_args(raw: Vec<String>) -> Result<Args, Error> {
                 };
                 args.models.push(ModelSpec { name, prices });
             }
+            "--api" => api_name = value()?,
             "--mode" => {
-                args.mode = OutputMode::parse(&value()?)
+                mode = OutputMode::parse(&value()?)
                     .ok_or("--mode is json_schema, json_object or prompt")?;
             }
             "--set" => args.set = PathBuf::from(value()?),
@@ -420,6 +434,10 @@ fn parse_args(raw: Vec<String>) -> Result<Args, Error> {
                 .into());
             }
         }
+    }
+    args.api = Api::parse(&api_name, mode).ok_or("--api is openai or anthropic")?;
+    if args.base_url.is_empty() && args.api == Api::Anthropic {
+        dibill_receipt::anthropic::BASE_URL.clone_into(&mut args.base_url);
     }
     if args.base_url.is_empty() || args.models.is_empty() {
         return Err("--base-url and at least one --model are required".into());

@@ -11,7 +11,7 @@ use axum::routing::post;
 use axum::{Json, Router};
 use dibill_domain::Currency;
 use dibill_receipt::openai::OutputMode;
-use dibill_receipt::{ProviderConfig, ScanError, Scanner, check};
+use dibill_receipt::{Api, ProviderConfig, ScanError, Scanner, check};
 use serde_json::{Value, json};
 
 type Requests = Arc<Mutex<Vec<(Option<String>, Value)>>>;
@@ -67,7 +67,7 @@ async fn serve(answers: Vec<(u16, &str)>) -> (Scanner, Fake) {
         base_url: format!("http://{addr}/v1/"),
         api_key: "test-key".into(),
         model: "vision-model".into(),
-        mode: OutputMode::JsonSchema,
+        api: Api::OpenAi(OutputMode::JsonSchema),
         timeout: Duration::from_secs(10),
     })
     .expect("scanner");
@@ -148,4 +148,85 @@ async fn provider_errors_surface() {
         Err(ScanError::Provider { status: 401, body }) => assert!(body.contains("bad key")),
         other => panic!("{other:?}"),
     }
+}
+
+/// Claude's Messages API: answers in order, records headers and bodies.
+async fn messages(
+    State(fake): State<Fake>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let key = headers
+        .get("x-api-key")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
+    let version = headers
+        .get("anthropic-version")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_owned();
+    fake.requests
+        .lock()
+        .expect("lock")
+        .push((key, json!({ "version": version, "body": body })));
+    let (status, text) = fake.answers.lock().expect("lock").remove(0);
+    let response = json!({
+        "content": [{ "type": "thinking", "thinking": "" }, { "type": "text", "text": text }],
+        "stop_reason": "end_turn",
+        "usage": { "input_tokens": 1500, "output_tokens": 200 }
+    });
+    (
+        StatusCode::from_u16(status).expect("status"),
+        Json(response),
+    )
+}
+
+#[tokio::test]
+async fn claude_messages_api_with_repair() {
+    let fake = Fake {
+        answers: Arc::new(Mutex::new(vec![
+            (200, WRONG_SUM.to_owned()),
+            (200, GOOD.to_owned()),
+        ])),
+        ..Fake::default()
+    };
+    let app = Router::new()
+        .route("/v1/messages", post(messages))
+        .with_state(fake.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let addr = listener.local_addr().expect("addr");
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    let scanner = Scanner::new(ProviderConfig {
+        api: Api::Anthropic,
+        base_url: format!("http://{addr}/v1"),
+        api_key: "sk-test".into(),
+        model: "claude-opus-5-5".into(),
+        timeout: Duration::from_secs(10),
+    })
+    .expect("scanner");
+
+    let outcome = scanner
+        .scan(b"jpeg bytes", "image/jpeg", eur())
+        .await
+        .expect("scan");
+    assert_eq!(check(outcome.receipt.as_ref().expect("receipt"), eur()), []);
+    assert_eq!(outcome.raw.len(), 2);
+    assert_eq!(outcome.usage.input_tokens, 3000);
+
+    let requests = fake.requests.lock().expect("lock");
+    let (key, first) = &requests[0];
+    assert_eq!(key.as_deref(), Some("sk-test"));
+    assert_eq!(first["version"], dibill_receipt::anthropic::API_VERSION);
+    let image = &first["body"]["messages"][0]["content"][0];
+    assert_eq!(image["source"]["data"], "anBlZyBieXRlcw==");
+    assert_eq!(
+        first["body"]["output_config"]["format"]["type"],
+        "json_schema"
+    );
+    assert_eq!(
+        requests[1].1["body"]["messages"].as_array().map(Vec::len),
+        Some(3)
+    );
 }

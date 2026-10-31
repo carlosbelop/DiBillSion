@@ -56,3 +56,16 @@ few months, and the owner hasn't picked one yet. We need:
   parses and adds up.
 - `cargo deny` now checks only the targets we build (server, apps, macOS CI), so wasm-only
   dependencies with other licences (bundled CA roots) don't count.
+
+## Addendum (2026-10-31): native Claude provider
+
+The owner chose Claude to start. Claude's OpenAI-compatible endpoint ignores `response_format`,
+so it would lose the schema constraint; Claude gets a native adapter instead
+(`dibill_receipt::anthropic`): `POST {base}/messages` with `x-api-key` and
+`anthropic-version: 2026-10-21`, the image as a base64 `image` block, the system prompt as
+`system`, structured output through `output_config.format` (`json_schema`), text blocks read and
+thinking blocks skipped, `stop_reason: refusal` treated as an error. No sampling parameters are
+sent (that API version rejects them). The repair retry and everything after the answer are
+shared with the OpenAI-compatible path. Selected with `Api::Anthropic` (`RECEIPT_API=anthropic`
+on the server, `--api anthropic` in the harness). Nullable schema fields are now written as
+`anyOf` with `null`, which both providers' structured-output modes accept.

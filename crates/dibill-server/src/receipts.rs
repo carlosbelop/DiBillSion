@@ -12,7 +12,7 @@ use base64::engine::general_purpose::STANDARD;
 use dibill_domain::Currency;
 use dibill_proto::{MAX_RECEIPT_BYTES, ScanReceipt, ScannedReceipt};
 use dibill_receipt::openai::OutputMode;
-use dibill_receipt::{ProviderConfig, Scanner};
+use dibill_receipt::{Api, ProviderConfig, Scanner};
 
 use crate::auth::Device;
 use crate::extract::Body;
@@ -53,20 +53,33 @@ impl Receipts {
         })
     }
 
-    /// From `RECEIPT_API_BASE`, `RECEIPT_API_KEY`, `RECEIPT_MODEL` (all three or scanning stays
-    /// off), `RECEIPT_OUTPUT_MODE` (`json_schema`, `json_object` or `prompt`; default
-    /// `json_schema`), `RECEIPT_DAILY_LIMIT` (per device, default 20), `RECEIPT_MONTHLY_LIMIT`
+    /// From `RECEIPT_API` (`openai`, the default, or `anthropic` for Claude's Messages API),
+    /// `RECEIPT_API_BASE` (required for `openai`; Anthropic's by default), `RECEIPT_API_KEY` and
+    /// `RECEIPT_MODEL` (scanning stays off without a key and a model), `RECEIPT_OUTPUT_MODE`
+    /// (`openai` only: `json_schema`, `json_object` or `prompt`; default `json_schema`), `RECEIPT_DAILY_LIMIT` (per device, default 20), `RECEIPT_MONTHLY_LIMIT`
     /// (whole server, default 1000) and `RECEIPT_TIMEOUT_SECS` (per model request, default 60).
     ///
     /// # Errors
     /// A setting that is present but invalid.
     pub fn from_env() -> Result<Self, AppError> {
         let var = |name: &str| std::env::var(name).ok().filter(|v| !v.trim().is_empty());
-        let (Some(base_url), Some(api_key), Some(model)) = (
-            var("RECEIPT_API_BASE"),
-            var("RECEIPT_API_KEY"),
-            var("RECEIPT_MODEL"),
-        ) else {
+        let mode = match var("RECEIPT_OUTPUT_MODE") {
+            None => OutputMode::JsonSchema,
+            Some(m) => OutputMode::parse(m.trim()).ok_or_else(|| {
+                AppError::Internal(
+                    "RECEIPT_OUTPUT_MODE is json_schema, json_object or prompt".into(),
+                )
+            })?,
+        };
+        let api_name = var("RECEIPT_API").unwrap_or_else(|| "openai".into());
+        let api = Api::parse(api_name.trim(), mode)
+            .ok_or_else(|| AppError::Internal("RECEIPT_API is openai or anthropic".into()))?;
+        let base_url = var("RECEIPT_API_BASE").or_else(|| {
+            (api == Api::Anthropic).then(|| dibill_receipt::anthropic::BASE_URL.to_owned())
+        });
+        let (Some(base_url), Some(api_key), Some(model)) =
+            (base_url, var("RECEIPT_API_KEY"), var("RECEIPT_MODEL"))
+        else {
             return Ok(Self::disabled());
         };
         let number = |name: &str, default: u32| -> Result<u32, AppError> {
@@ -76,19 +89,11 @@ impl Receipts {
                     .map_err(|_| AppError::Internal(format!("{name} must be a whole number")))
             })
         };
-        let mode = match var("RECEIPT_OUTPUT_MODE") {
-            None => OutputMode::JsonSchema,
-            Some(m) => OutputMode::parse(m.trim()).ok_or_else(|| {
-                AppError::Internal(
-                    "RECEIPT_OUTPUT_MODE is json_schema, json_object or prompt".into(),
-                )
-            })?,
-        };
         let provider = ProviderConfig {
+            api,
             base_url,
             api_key,
             model,
-            mode,
             timeout: Duration::from_secs(number("RECEIPT_TIMEOUT_SECS", 60)?.into()),
         };
         Self::new(
