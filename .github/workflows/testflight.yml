@@ -37,7 +37,7 @@ jobs:
       github.event_name != 'pull_request'
       || !github.event.repository.private
       || contains(github.event.pull_request.labels.*.name, 'macos')
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -78,13 +78,14 @@ jobs:
           fi
           echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
       - name: Archive
-        # Unsigned: the export below signs it for App Store Connect with an Apple-managed
-        # distribution certificate. Signing here would want a development profile, which
-        # needs a registered device.
+        # Ad-hoc signed: the export below re-signs it for App Store Connect with an
+        # Apple-managed distribution certificate. Automatic signing here would want a
+        # development profile, which needs a registered device.
         run: |
           xcodebuild archive -project ios/DiBillSion.xcodeproj -scheme DiBillSion \
             -configuration Release -destination 'generic/platform=iOS' \
-            -archivePath build/DiBillSion.xcarchive CODE_SIGNING_ALLOWED=NO \
+            -archivePath build/DiBillSion.xcarchive \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- PROVISIONING_PROFILE_SPECIFIER= \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             SYNC_URL="$SYNC_URL" | xcbeautify --renderer github-actions
       - name: Export and upload to App Store Connect
