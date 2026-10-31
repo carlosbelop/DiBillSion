@@ -468,6 +468,79 @@ impl Store {
         )
     }
 
+    /// Sets how many parts `member` takes of the item at `item` of an expense or
+    /// income, 0 meaning they leave it (ADR 0009). Synced on its own, so people
+    /// changing different items or different members at once all keep their change.
+    ///
+    /// # Errors
+    /// [`StoreError::NotFound`] for an unknown or deleted transaction, item or
+    /// member of another group; [`SplitError::NoParticipants`] when the item
+    /// would have nobody left; [`MemberError::Inactive`] to add an inactive
+    /// member; [`StoreError::MalformedTransfer`] for transfers and
+    /// [`SplitError::AmountsDontAddUp`] for items split by exact amounts.
+    pub fn set_item_share(
+        &self,
+        id: TransactionId,
+        item: u32,
+        member: MemberId,
+        parts: u32,
+    ) -> Result<()> {
+        let group: Uuid = self
+            .conn
+            .query_row(
+                "SELECT group_id FROM transactions WHERE id = ?1 AND deleted_at IS NULL",
+                [id.0],
+                |r| r.get(0),
+            )
+            .optional()?
+            .ok_or(StoreError::NotFound)?;
+        let group = GroupId(group);
+        if self.member_group(member)? != group {
+            return Err(StoreError::NotFound);
+        }
+        let t = self
+            .transactions(group)?
+            .into_iter()
+            .find(|t| t.id == id)
+            .ok_or(StoreError::NotFound)?;
+        if t.kind == TransactionKind::Transfer {
+            return Err(StoreError::MalformedTransfer);
+        }
+        let current = t
+            .items
+            .get(usize::try_from(item).map_err(|_| StoreError::NotFound)?)
+            .ok_or(StoreError::NotFound)?;
+        if current
+            .shares
+            .iter()
+            .any(|s| matches!(s.portion, Portion::Amount(_)))
+        {
+            return Err(SplitError::AmountsDontAddUp.into());
+        }
+        let others = current
+            .shares
+            .iter()
+            .any(|s| s.member != member && matches!(s.portion, Portion::Parts(w) if w > 0));
+        if parts == 0 && !others {
+            return Err(SplitError::NoParticipants.into());
+        }
+        let shared = current.shares.iter().any(|s| s.member == member);
+        if parts > 0
+            && !shared
+            && self
+                .members(group)?
+                .iter()
+                .any(|m| m.id == member && m.status == MemberStatus::Inactive)
+        {
+            return Err(MemberError::Inactive(member).into());
+        }
+        self.write(
+            group,
+            Entity::Transaction(id),
+            vec![set(Field::Share { item, member }, json(&parts))],
+        )
+    }
+
     /// Marks a transaction deleted (a tombstone kept for sync).
     ///
     /// # Errors

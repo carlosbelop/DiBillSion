@@ -371,6 +371,29 @@ impl Core {
         Ok(t.id.0.to_string())
     }
 
+    /// Adds `member_id` to, or removes them from, the item at `item_index` of an
+    /// expense or income (an equal-parts item, such as a scanned receipt line).
+    /// Synced on its own, so several people can change items at once (ADR 0009).
+    ///
+    /// # Errors
+    /// [`CoreError::InvalidSplit`] when the item would have nobody left or is
+    /// split by exact amounts; [`CoreError::MemberInactive`] to add an inactive
+    /// member; [`CoreError::NotFound`] for an unknown transaction, item or member.
+    pub fn set_item_member(
+        &self,
+        transaction_id: String,
+        item_index: u32,
+        member_id: String,
+        included: bool,
+    ) -> Result<(), CoreError> {
+        Ok(self.store().set_item_share(
+            TransactionId(uuid(&transaction_id)?),
+            item_index,
+            MemberId(uuid(&member_id)?),
+            u32::from(included),
+        )?)
+    }
+
     /// # Errors
     /// [`CoreError::NotFound`].
     pub fn delete_transaction(&self, transaction_id: String) -> Result<(), CoreError> {
@@ -660,6 +683,52 @@ mod tests {
         );
         assert_eq!(core.groups().unwrap()[0].name, "Lisbon");
         assert_eq!(currency_exponent("JPY".into()).unwrap(), 0);
+    }
+
+    #[test]
+    fn people_join_and_leave_receipt_items() {
+        let core = Core::in_memory().unwrap();
+        let g = core
+            .create_group("Flat".into(), None, GroupKindDto::Home, "EUR".into())
+            .unwrap();
+        let a = core.add_member(g.clone(), "A".into()).unwrap();
+        let b = core.add_member(g.clone(), "B".into()).unwrap();
+        let item = |label: &str, total| ItemDto {
+            label: Some(label.into()),
+            total_minor: total,
+            shares: equal(&[&a, &b]),
+        };
+        let id = core
+            .save_transaction(TransactionDto {
+                id: None,
+                group_id: g.clone(),
+                kind: TransactionKindDto::Expense,
+                title: "Ahorramas".into(),
+                payer_id: a.clone(),
+                currency: "EUR".into(),
+                fx_rate: None,
+                date_days: 20_000,
+                items: vec![item("PAN", 200), item("VINO", 800)],
+                base_total_minor: None,
+            })
+            .unwrap();
+        core.set_item_member(id.clone(), 1, b.clone(), false)
+            .unwrap();
+        let t = &core.transactions(g.clone()).unwrap()[0];
+        assert_eq!(t.items[1].shares.len(), 1);
+        assert_eq!(t.items[1].label.as_deref(), Some("VINO"));
+        // B owes half the bread only.
+        let balances = core.balances(g).unwrap();
+        let owed = balances.balances.iter().find(|x| x.member_id == b).unwrap();
+        assert_eq!(owed.amount_minor, -100);
+        assert!(matches!(
+            core.set_item_member(id.clone(), 1, a, false),
+            Err(CoreError::InvalidSplit { .. })
+        ));
+        assert!(matches!(
+            core.set_item_member(id, 5, b, true),
+            Err(CoreError::NotFound)
+        ));
     }
 
     #[test]

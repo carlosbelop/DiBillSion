@@ -547,6 +547,121 @@ mod sync {
         assert_eq!(other.groups().unwrap(), []);
     }
 
+    /// A two-item receipt shared by everyone.
+    fn receipt(t: &Trip) -> Transaction {
+        let all = |total| Item {
+            label: Some("x".into()),
+            total,
+            shares: [t.a, t.b, t.c]
+                .iter()
+                .map(|m| ItemShare::parts(*m, 1))
+                .collect(),
+        };
+        Transaction {
+            items: vec![all(900), all(300)],
+            ..expense(t.group, t.a, 1200, &[t.a])
+        }
+    }
+
+    fn members_of(store: &Store, group: GroupId, item: usize) -> Vec<MemberId> {
+        let t = store.transactions(group).unwrap().remove(0);
+        t.items[item].shares.iter().map(|s| s.member).collect()
+    }
+
+    #[test]
+    fn people_join_and_leave_items() {
+        let mut t = trip();
+        let r = receipt(&t);
+        t.store.save_transaction(&r).unwrap();
+        t.store.set_item_share(r.id, 0, t.b, 0).unwrap();
+        assert_eq!(members_of(&t.store, t.group, 0), [t.a, t.c]);
+        assert_eq!(members_of(&t.store, t.group, 1), [t.a, t.b, t.c]);
+        // B no longer pays for item 0: 900 / 2 + 300 / 3.
+        let b = t.store.group_balances(t.group).unwrap();
+        let owed = |m| b.balances.get(&m).copied();
+        assert_eq!(owed(t.b), Some(-100));
+        t.store.set_item_share(r.id, 0, t.b, 1).unwrap();
+        assert_eq!(members_of(&t.store, t.group, 0), [t.a, t.b, t.c]);
+
+        // The last person can't leave; unknown items and transfers are refused.
+        t.store.set_item_share(r.id, 1, t.a, 0).unwrap();
+        t.store.set_item_share(r.id, 1, t.b, 0).unwrap();
+        assert!(matches!(
+            t.store.set_item_share(r.id, 1, t.c, 0),
+            Err(StoreError::Split(SplitError::NoParticipants))
+        ));
+        assert!(matches!(
+            t.store.set_item_share(r.id, 2, t.a, 1),
+            Err(StoreError::NotFound)
+        ));
+        let mut exact = expense(t.group, t.a, 1000, &[]);
+        exact.items[0].shares = vec![ItemShare::amount(t.a, 400), ItemShare::amount(t.b, 600)];
+        t.store.save_transaction(&exact).unwrap();
+        assert!(t.store.set_item_share(exact.id, 0, t.c, 1).is_err());
+    }
+
+    #[test]
+    fn concurrent_changes_to_one_item_all_survive() {
+        let mut t = trip();
+        let r = receipt(&t);
+        t.store.save_transaction(&r).unwrap();
+        let mut other = replica_of(&t);
+        // B leaves item 0 on this phone while C leaves it on the other one.
+        t.store.set_item_share(r.id, 0, t.b, 0).unwrap();
+        other.set_item_share(r.id, 0, t.c, 0).unwrap();
+        exchange(&mut t.store, &mut other, t.group);
+        assert_eq!(members_of(&t.store, t.group, 0), [t.a]);
+        assert_eq!(snapshot(&other), snapshot(&t.store));
+    }
+
+    #[test]
+    fn editing_the_whole_expense_supersedes_item_changes() {
+        let mut t = trip();
+        let r = receipt(&t);
+        t.store.save_transaction(&r).unwrap();
+        t.store.set_item_share(r.id, 0, t.b, 0).unwrap();
+        // An edit made from what the editor shows keeps the change...
+        let shown = t.store.transactions(t.group).unwrap().remove(0);
+        t.store
+            .save_transaction(&Transaction {
+                title: "Renamed".into(),
+                ..shown
+            })
+            .unwrap();
+        assert_eq!(members_of(&t.store, t.group, 0), [t.a, t.c]);
+        // ...and a newer body wins over older item changes, on every device.
+        let mut other = replica_of(&t);
+        other.save_transaction(&r).unwrap();
+        exchange(&mut t.store, &mut other, t.group);
+        assert_eq!(members_of(&t.store, t.group, 0), [t.a, t.b, t.c]);
+        assert_eq!(snapshot(&other), snapshot(&t.store));
+    }
+
+    #[test]
+    fn item_share_ops_survive_the_wire() {
+        let mut t = trip();
+        let r = receipt(&t);
+        t.store.save_transaction(&r).unwrap();
+        t.store.set_item_share(r.id, 1, t.c, 0).unwrap();
+        let op = t.store.group_ops(t.group).unwrap().pop().unwrap();
+        let wire = dibill_proto::WireOp::from(&op);
+        assert_eq!(
+            wire.field.as_deref(),
+            Some(format!("share:1:{}", t.c.0).as_str())
+        );
+        assert_eq!(wire.value.as_deref(), Some("0"));
+        assert_eq!(SyncOp::try_from(wire).unwrap(), op);
+        let mut bad = dibill_proto::WireOp::from(&op);
+        bad.value = Some("\"many\"".into());
+        let mut other = replica_of(&t);
+        assert_eq!(
+            other
+                .apply_remote(&[SyncOp::try_from(bad).unwrap()])
+                .unwrap(),
+            0
+        );
+    }
+
     #[test]
     fn ops_survive_the_wire() {
         let mut t = trip();

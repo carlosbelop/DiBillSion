@@ -55,8 +55,8 @@ impl Entity {
 }
 
 /// A synced field. Values are JSON: strings for names, kinds, currencies and
-/// statuses, `null` or a string for the emoji, a boolean for `Archived`, and
-/// the whole transaction for `Body`.
+/// statuses, `null` or a string for the emoji, a boolean for `Archived`, the
+/// whole transaction for `Body`, and a number of parts for `Share`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Field {
     Name,
@@ -66,22 +66,39 @@ pub enum Field {
     Archived,
     Status,
     Body,
+    /// How many parts `member` takes of item `item` (by position) of a
+    /// transaction, 0 meaning they left it (ADR 0009). Wins over the body only
+    /// when newer than it, so editing the whole transaction resets them.
+    Share {
+        item: u32,
+        member: MemberId,
+    },
 }
 
 impl Field {
-    fn as_str(self) -> &'static str {
+    fn name(self) -> String {
         match self {
-            Self::Name => "name",
-            Self::Emoji => "emoji",
-            Self::Kind => "kind",
-            Self::BaseCurrency => "base_currency",
-            Self::Archived => "archived",
-            Self::Status => "status",
-            Self::Body => "body",
+            Self::Name => "name".into(),
+            Self::Emoji => "emoji".into(),
+            Self::Kind => "kind".into(),
+            Self::BaseCurrency => "base_currency".into(),
+            Self::Archived => "archived".into(),
+            Self::Status => "status".into(),
+            Self::Body => "body".into(),
+            Self::Share { item, member } => format!("share:{item}:{}", member.0),
         }
     }
 
     fn parse(s: &str) -> Result<Self> {
+        if let Some((item, member)) = s.strip_prefix("share:").and_then(|r| r.split_once(':')) {
+            return match (item.parse(), Uuid::parse_str(member)) {
+                (Ok(item), Ok(member)) => Ok(Self::Share {
+                    item,
+                    member: MemberId(member),
+                }),
+                _ => Err(StoreError::Corrupt(format!("op field {s:?}"))),
+            };
+        }
         Ok(match s {
             "name" => Self::Name,
             "emoji" => Self::Emoji,
@@ -131,6 +148,7 @@ impl SyncOp {
             (Entity::Transaction(id), Field::Body) => {
                 parse::<Body>(value).is_some_and(|b| b.into_transaction(id, self.group).is_ok())
             }
+            (Entity::Transaction(_), Field::Share { .. }) => parse::<u32>(value).is_some(),
             _ => false,
         }
     }
@@ -139,7 +157,7 @@ impl SyncOp {
 impl From<&SyncOp> for WireOp {
     fn from(op: &SyncOp) -> Self {
         let (field, value) = match &op.change {
-            Change::Set { field, value } => (Some(field.as_str().to_owned()), Some(value.clone())),
+            Change::Set { field, value } => (Some(field.name()), Some(value.clone())),
             Change::Delete => (None, None),
         };
         Self {
@@ -340,7 +358,7 @@ fn save_clock(conn: &Connection, clock: &LamportClock) -> Result<()> {
 /// Inserts an op unless it is known. Returns whether it was new.
 fn insert(conn: &Connection, op: &SyncOp, pushed: bool) -> Result<bool> {
     let (field, value) = match &op.change {
-        Change::Set { field, value } => (Some(field.as_str()), Some(value.as_str())),
+        Change::Set { field, value } => (Some(field.name()), Some(value.as_str())),
         Change::Delete => (None, None),
     };
     let n = conn
@@ -603,6 +621,12 @@ pub(crate) fn materialize_transaction(
                 .collect::<Result<_>>()?;
             body.into_transaction(id, group)
                 .ok()
+                .map(|mut t| {
+                    if let Some(state) = &state {
+                        apply_shares(&mut t, state, &members);
+                    }
+                    t
+                })
                 .filter(|t| validate(t, base, &members).is_ok())
         }
         _ => None,
@@ -613,6 +637,55 @@ pub(crate) fn materialize_transaction(
     };
     let deleted = state.is_some_and(|s| s.is_deleted());
     write_rows(conn, &t, deleted)
+}
+
+/// Applies the `Share` fields newer than the body (ADR 0009), in field order:
+/// unknown members, unknown items and items with exact amounts are skipped, and
+/// a change that would leave an item with nobody is ignored.
+fn apply_shares(
+    t: &mut Transaction,
+    state: &EntityState<Field, String>,
+    members: &BTreeMap<MemberId, MemberStatus>,
+) {
+    let Some(body) = state.field_stamp(&Field::Body) else {
+        return;
+    };
+    for (field, stamp, value) in state.fields() {
+        let Field::Share { item, member } = *field else {
+            continue;
+        };
+        let (Some(parts), Ok(index)) = (parse::<u32>(value), usize::try_from(item)) else {
+            continue;
+        };
+        if stamp <= body || !members.contains_key(&member) {
+            continue;
+        }
+        let Some(item) = t.items.get_mut(index) else {
+            continue;
+        };
+        if item
+            .shares
+            .iter()
+            .any(|s| matches!(s.portion, Portion::Amount(_)))
+        {
+            continue;
+        }
+        let mut shares = item.shares.clone();
+        match (shares.iter().position(|s| s.member == member), parts) {
+            (Some(i), 0) => {
+                shares.remove(i);
+            }
+            (Some(i), w) => shares[i].portion = Portion::Parts(w),
+            (None, 0) => {}
+            (None, w) => shares.push(ItemShare::parts(member, w)),
+        }
+        if shares
+            .iter()
+            .any(|s| matches!(s.portion, Portion::Parts(w) if w > 0))
+        {
+            item.shares = shares;
+        }
+    }
 }
 
 fn write_rows(conn: &Connection, t: &Transaction, deleted: bool) -> Result<()> {

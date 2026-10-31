@@ -142,6 +142,11 @@ impl<F: Ord, V> EntityState<F, V> {
     pub fn field_stamp(&self, field: &F) -> Option<Stamp> {
         self.fields.get(field).map(|((s, _), _)| *s)
     }
+
+    /// Every field's winning value with its stamp, in field order.
+    pub fn fields(&self) -> impl Iterator<Item = (&F, Stamp, &V)> {
+        self.fields.iter().map(|(f, ((s, _), v))| (f, *s, v))
+    }
 }
 
 /// An in-memory replica of a set of entities.
