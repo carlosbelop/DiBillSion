@@ -1,0 +1,18 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSCameraUsageDescription": {
+      "comment": "Camera permission prompt",
+      "extractionState": "manual",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz una foto de un ticket para repartirlo por artículos."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

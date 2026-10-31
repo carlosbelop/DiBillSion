@@ -39,6 +39,8 @@ targets:
           UIColorName: AccentColor
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
+        # Translated in InfoPlist.xcstrings.
+        NSCameraUsageDescription: Take a photo of a receipt to split it by item.
         # Sync server for this build (ADR 0007); empty means no server yet.
         DibillSyncURL: $(SYNC_URL)
         CFBundleURLTypes:

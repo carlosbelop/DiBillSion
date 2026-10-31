@@ -20,7 +20,7 @@ Last updated: 2026-10-31 (session 5)
 1. ~~**P0 public-repo prep**~~ done (current files cleaned, history kept; issue/PR texts edited). The owner switches the repo to public.
 2. **M4 iOS → TestFlight**: app and CI done (#72, #74); TestFlight uploads work (#78), testers pending (see *Needs the owner*). Then simulator screenshots in CI and parity items.
 3. **B1 Pi** (weekend, when the owner turns the Pi on): 64-bit OS + Docker, `deploy/deploy.sh`, Tailscale Funnel URL → release `SYNC_URL`; then B2 Android beta build.
-4. **M7 receipts** (started 2026-10-31 while the Pi waits): eval set + harness (#82), then server endpoint + core, Android and iOS scan screens. Model choice after the eval run (owner: key).
+4. **M7 receipts** (2026-10-31, while the Pi waits): eval set + harness (#82), server endpoint + core (#84), Android (#86) and iOS (#88) scan screens done. Next: run the eval (owner: provider key), set `RECEIPT_*` on the Pi, try a real scan on both phones, then a TestFlight build.
 
 ## Backlog (in order)
 
@@ -82,6 +82,7 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 
 ### M4: iOS (no Mac needed for building)
 - [x] XCFramework + Swift bindings (`scripts/build-xcframework.sh`), SwiftUI app for the flat use case (XcodeGen, iOS 17+): groups, people, add expense with an equal split and live exact shares, balances with "you owe / you are owed" and settle, invite (share sheet) and join (link, code or `dibillsion://join/<code>`), who am I, pull-to-refresh and background sync over `URLSession`, English + Spanish. macOS CI workflow (`ios.yml`): build + unit tests on the simulator; while the repo is private it only runs with the `macos` PR label or manual dispatch. ([#72](https://github.com/carlosbelop/DiBillSion/pull/72))
+- [x] Receipt scanning on iOS, same flow as Android: scan button next to *Add expense* (camera with a usage text in en/es, or `PhotosPicker`), 1600 px JPEG, reading screen, review (title, payer, date, currency + rate, editable items, people per item, total check, per-person totals, scans left), one multi-item expense; transport honours the core's per-request timeout. Non-UI Swift checked on Linux (`ReceiptDraftTests`), UI on macOS CI. ([#88](https://github.com/carlosbelop/DiBillSion/pull/88))
 - [ ] Simulator screenshots as CI artifacts; remaining parity with Android (edit expenses, income, unequal splits, foreign-currency polish).
 - [x] Signing + TestFlight upload from CI (`testflight.yml`, automatic signing with the App Store Connect API key, internal testing only; unsigned device archive on PRs). ([#74](https://github.com/carlosbelop/DiBillSion/pull/74))
 - [x] First TestFlight upload (2026-10-31, build 13; no sync server yet). Signing: each run makes a throwaway Apple Distribution certificate + App Store profile through the API (`scripts/asc.py`), signs manually, uploads, then revokes/deletes them; Xcode 26 runners (`macos-26`), required by App Store Connect. ([#78](https://github.com/carlosbelop/DiBillSion/pull/78))

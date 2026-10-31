@@ -13,7 +13,8 @@ final class SyncTransport: HttpTransport, @unchecked Sendable {
     init(baseURL: String) {
         self.baseURL = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
         let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 10
+        // The longest any request may wait; each request sets its own below.
+        config.timeoutIntervalForRequest = 180
         session = URLSession(configuration: config)
     }
 
@@ -30,6 +31,8 @@ final class SyncTransport: HttpTransport, @unchecked Sendable {
         }
         var req = URLRequest(url: url)
         req.httpMethod = request.method
+        // The core says how long the answer may take: seconds for sync, minutes for a scan.
+        req.timeoutInterval = TimeInterval(request.timeoutSecs)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         if let token = request.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
