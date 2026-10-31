@@ -36,3 +36,35 @@ macOS is the reference.
 While the repository is private, macOS minutes are expensive, so the workflow runs only when a
 PR has the `macos` label or on manual dispatch. Once the repository is public it runs on every
 PR and push that touches iOS or the core.
+
+## TestFlight
+
+`.github/workflows/testflight.yml` archives a signed Release build and uploads it to App Store
+Connect: **Actions → TestFlight → Run workflow** (or push a tag `ios-v*`). Signing is automatic:
+Xcode creates the distribution certificate and profile with the API key, so nothing is stored
+in git. The build number is the workflow run number. On PRs it only makes an unsigned device
+archive.
+
+One-time setup (owner, after the Apple Developer Program is approved):
+
+1. **Team ID**: developer.apple.com → Account → Membership details. Save it as the secret
+   `APPLE_TEAM_ID`.
+2. **App ID**: Certificates, Identifiers & Profiles → Identifiers → + → App IDs → App, explicit
+   bundle ID `com.dibillsion.app`.
+3. **App record**: App Store Connect → Apps → + New App: iOS, name "DiBillSion", primary language
+   Spanish (Spain), bundle ID `com.dibillsion.app`, SKU `dibillsion-ios`.
+4. **API key**: App Store Connect → Users and Access → Integrations → App Store Connect API →
+   Team Keys → +, access **Admin** (needed for CI to create the signing certificate itself).
+   Download the `.p8` (only possible once) and add the secrets:
+   ```bash
+   gh secret set ASC_KEY_ID --body "<Key ID>"
+   gh secret set ASC_ISSUER_ID --body "<Issuer ID>"
+   gh secret set ASC_KEY_P8 < AuthKey_<Key ID>.p8
+   gh secret set APPLE_TEAM_ID --body "<Team ID>"
+   ```
+5. **Testers** (internal testing, no beta review): Users and Access → + → invite each tester
+   with the *Customer Support* role; once they accept, TestFlight → Internal Testing → + group →
+   add them, with automatic distribution on. They install the TestFlight app and accept the invite.
+
+The beta server URL comes from the repository variable `SYNC_URL`
+(`gh variable set SYNC_URL --body https://<host>.<tailnet>.ts.net`).
