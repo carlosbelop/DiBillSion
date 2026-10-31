@@ -38,7 +38,7 @@ The owner (`carlosbelop`) wants sessions to **implement and develop autonomously
 
 ## Workflow
 
-- `main` is **not** protected by GitHub (rulesets aren't enforced on private repos on the free plan), so this workflow is self-enforced. Never commit or push to `main` directly. Every change follows **issue → linked branch → PR**:
+- `main` is protected by the `Protect main` ruleset (enforced since the repo went public): PR only, squash only, required checks, verified signatures. Never commit or push to `main` directly. Every change follows **issue → linked branch → PR**:
   1. Create (or reuse) an issue, **assigned to `carlosbelop`**:
      `gh issue create --assignee carlosbelop --title "…" --body "…"`
   2. Create the branch from the issue, so it's linked under the issue's *Development* section:
