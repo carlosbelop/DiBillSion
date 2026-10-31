@@ -1,0 +1,8 @@
+# The server image from a binary built elsewhere (deploy.sh with DIBILL_BUILD=zig): the host
+# builds it from the cross-compiled binary, so the dev machine needs no Docker.
+FROM gcr.io/distroless/cc-debian12:nonroot
+COPY dibill-server /usr/local/bin/dibill-server
+ENV DIBILL_BIND=0.0.0.0:8080 \
+    RUST_LOG=info
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/dibill-server"]

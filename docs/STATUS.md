@@ -66,7 +66,8 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 ### Friends beta (PLAN §4.1: B1, B2)
 - [x] Deploy kit ([deploy/](../deploy/README.md)): cross-compiled amd64/arm64 image (distroless, non-root), `compose.yaml` with PostgreSQL 17 + nightly `pg_dump` (14 days), `deploy.sh` (build here, ship over SSH, wait for `/health`), HTTPS via Tailscale Funnel or Cloudflare Tunnel, restore guide; server stops cleanly on SIGTERM; CI builds and boots the image. ([#66](https://github.com/carlosbelop/DiBillSion/pull/66))
 - [ ] Server hardening for the public internet: rate limits (device registration per IP, pushes per device), request logging without bodies, CORS off, metrics/health.
-- [ ] Deploy to the beta host (owner: Raspberry Pi set up or VPS account) and point a release build at it.
+- [x] Deployed on the owner's Raspberry Pi (2026-10-31): Pi 4, Debian 13 arm64, Docker 29, SD card; stack in `~/dibillsion` (server + PostgreSQL 17 + nightly backups), `.env` with a random DB password and receipt scanning (Claude Haiku 5.5, 20 scans/phone/day, 500/month). Deployed from WSL with `DIBILL_BUILD=zig deploy/deploy.sh` (no local Docker). ([#100](https://github.com/carlosbelop/DiBillSion/pull/100))
+- [ ] HTTPS with Tailscale Funnel (owner: Tailscale login) and point the release builds at it.
 - [ ] Android beta build: release signing with an owner-held key (never in git), `SYNC_URL` = beta server, versioning, distribution (owner: APK sideload or Play internal testing).
 
 ### M7a: VLM receipt evaluation (starts in parallel)
