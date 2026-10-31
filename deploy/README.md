@@ -21,6 +21,10 @@ DIBILL_HOST=pi@raspberrypi.local deploy/deploy.sh
 ```
 
 It cross-compiles the image here, copies it over SSH, starts the stack and waits for `/health`.
+Without Docker on the dev machine (WSL without Docker Desktop), add `DIBILL_BUILD=zig`: the
+binary is cross-compiled with [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild)
+(`cargo install cargo-zigbuild`, zig on `PATH`) and the host builds the image from it
+(`Dockerfile.prebuilt`).
 The server listens only on `127.0.0.1:8080` of the host; nothing is opened on the router.
 
 ## 3. HTTPS for the phones
