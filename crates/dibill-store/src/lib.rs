@@ -626,6 +626,16 @@ impl Store {
         Ok(())
     }
 
+    /// Forgets the server token, so the next request registers again.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn clear_sync_token(&self) -> Result<()> {
+        self.conn
+            .execute("UPDATE sync_device SET token = NULL", [])?;
+        Ok(())
+    }
+
     /// Records that `group` is shared through the server (idempotent).
     ///
     /// # Errors
