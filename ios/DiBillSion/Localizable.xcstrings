@@ -121,6 +121,49 @@
         }
       }
     },
+    "%lld scans left today": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld scan left today"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld scans left today"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Te queda %lld escaneo hoy"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Te quedan %lld escaneos hoy"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "0": {
+      "shouldTranslate": false
+    },
     "About %@": {
       "localizations": {
         "es": {
@@ -147,6 +190,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Añadir gasto"
+          }
+        }
+      }
+    },
+    "Add item": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir artículo"
           }
         }
       }
@@ -241,6 +294,46 @@
         }
       }
     },
+    "Check the receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisa el ticket"
+          }
+        }
+      }
+    },
+    "Choose an image": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir una imagen"
+          }
+        }
+      }
+    },
+    "Couldn’t open that image. Try another one.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se ha podido abrir esa imagen. Prueba con otra."
+          }
+        }
+      }
+    },
+    "Couldn’t read a receipt in that photo. Try again with the whole receipt flat, in focus and well lit.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se ha podido leer un ticket en esa foto. Prueba otra vez con el ticket entero, plano, enfocado y con buena luz."
+          }
+        }
+      }
+    },
     "Couldn’t save to this device. Try again.": {
       "localizations": {
         "es": {
@@ -321,6 +414,16 @@
         }
       }
     },
+    "Delete item": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar artículo"
+          }
+        }
+      }
+    },
     "Delete “%@”?": {
       "localizations": {
         "es": {
@@ -354,6 +457,16 @@
         }
       }
     },
+    "Discard this receipt?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Descartar este ticket?"
+          }
+        }
+      }
+    },
     "Discard what you have entered?": {
       "localizations": {
         "es": {
@@ -363,6 +476,9 @@
           }
         }
       }
+    },
+    "EUR": {
+      "shouldTranslate": false
     },
     "Emoji (optional)": {
       "localizations": {
@@ -400,6 +516,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Evento"
+          }
+        }
+      }
+    },
+    "Every item needs a valid amount (0 for free items).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada artículo necesita un importe válido (0 si es gratis)."
+          }
+        }
+      }
+    },
+    "Every item needs at least one person.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada artículo necesita al menos una persona."
           }
         }
       }
@@ -464,6 +600,16 @@
         }
       }
     },
+    "Includes a %@ discount": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incluye un descuento de %@"
+          }
+        }
+      }
+    },
     "Invite link or code": {
       "localizations": {
         "es": {
@@ -480,6 +626,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Invitar"
+          }
+        }
+      }
+    },
+    "Item": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artículo"
+          }
+        }
+      }
+    },
+    "Items add up to %@ but the receipt says %@. Check the amounts.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los artículos suman %1$@, pero el ticket dice %2$@. Revisa los importes."
+          }
+        }
+      }
+    },
+    "Items add up to the receipt total, %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los artículos suman el total del ticket, %@."
           }
         }
       }
@@ -604,6 +780,26 @@
         }
       }
     },
+    "No receipt scans left for now. Try again tomorrow.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No te quedan escaneos de tickets por ahora. Prueba mañana."
+          }
+        }
+      }
+    },
+    "No total found on the receipt. Items add up to %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se ha encontrado el total en el ticket. Los artículos suman %@."
+          }
+        }
+      }
+    },
     "Not in new expenses": {
       "localizations": {
         "es": {
@@ -704,6 +900,16 @@
         }
       }
     },
+    "Per person": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por persona"
+          }
+        }
+      }
+    },
     "Person %lld": {
       "localizations": {
         "es": {
@@ -750,6 +956,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cambio: 1 %1$@ = ? %2$@"
+          }
+        }
+      }
+    },
+    "Reading the receipt…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leyendo el ticket…"
+          }
+        }
+      }
+    },
+    "Receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ticket"
+          }
+        }
+      }
+    },
+    "Receipt scanning isn’t available on this server yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El escaneo de tickets aún no está disponible en este servidor."
           }
         }
       }
@@ -810,6 +1046,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Guardar"
+          }
+        }
+      }
+    },
+    "Scan receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escanear ticket"
           }
         }
       }
@@ -884,12 +1130,32 @@
         }
       }
     },
+    "Take a photo": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hacer una foto"
+          }
+        }
+      }
+    },
     "Takes part in new expenses": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Participa en gastos nuevos"
+          }
+        }
+      }
+    },
+    "Tap people to choose who shares each item. Everyone shares it until you do.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca a las personas para elegir quién comparte cada artículo. Mientras no lo hagas, lo comparten todos."
           }
         }
       }
@@ -944,6 +1210,16 @@
         }
       }
     },
+    "The receipt reader isn’t responding. Try again in a moment.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El lector de tickets no responde. Prueba de nuevo en un momento."
+          }
+        }
+      }
+    },
     "The server couldn’t handle that right now. Try again in a moment.": {
       "localizations": {
         "es": {
@@ -970,6 +1246,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Esta persona ya aparece en gastos y no se puede quitar. Desactívala en su lugar."
+          }
+        }
+      }
+    },
+    "This takes a few seconds. You can check and fix everything afterwards.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarda unos segundos. Después podrás revisarlo y corregirlo todo."
           }
         }
       }

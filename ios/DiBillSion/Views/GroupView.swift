@@ -49,6 +49,9 @@ struct GroupView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { menu(d) }
             ToolbarItem(placement: .bottomBar) {
+                ScanReceiptButton().disabled(d.members.filter(\.active).isEmpty)
+            }
+            ToolbarItem(placement: .bottomBar) {
                 Button { addingExpense = true } label: {
                     Label("Add expense", systemImage: "plus.circle.fill").labelStyle(.titleAndIcon)
                 }
@@ -57,6 +60,10 @@ struct GroupView: View {
             }
         }
         .sheet(isPresented: $addingExpense) { AddExpenseView(d: d) }
+        .fullScreenCover(isPresented: Binding(get: { model.scan != nil },
+                                              set: { if !$0 { model.closeScan() } })) {
+            ReceiptFlowView()
+        }
         .sheet(isPresented: $choosingMe) { WhoAmIView(d: d) }
         .sheet(item: Binding(get: { model.invite }, set: { model.invite = $0 })) { invite in
             ShareSheet(items: [String(localized: "Join “\(invite.groupName)” on DiBillSion: \(invite.link) (invite code: \(invite.code))")])

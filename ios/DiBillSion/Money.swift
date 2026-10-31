@@ -33,6 +33,15 @@ enum Money {
         return "\(number) \(code)"
     }
 
+    /// Minor units as plain editable text with a dot: 250 -> "2.50", for pre-filled fields.
+    static func plain(_ minor: Int64, exponent: Int) -> String {
+        let sign = minor < 0 ? "-" : ""
+        let digits = String(minor.magnitude)
+        guard exponent > 0 else { return sign + digits }
+        let padded = String(repeating: "0", count: max(0, exponent + 1 - digits.count)) + digits
+        return sign + padded.dropLast(exponent) + "." + padded.suffix(exponent)
+    }
+
     /// Validates an exchange rate typed by the user and normalises it for the core
     /// ("1,0850" -> "1.085"). Nil unless it is a plain number greater than zero.
     static func parseRate(_ text: String) -> String? {

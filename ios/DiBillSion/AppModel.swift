@@ -23,6 +23,13 @@ struct GroupDetail: Sendable {
     }
 }
 
+/// A receipt being read or reviewed in the open group.
+enum ScanState: Equatable {
+    /// The photo is on its way to the server's model.
+    case reading
+    case review(ReceiptDraft)
+}
+
 struct PendingInvite: Identifiable {
     let groupName: String
     let code: String
@@ -48,6 +55,9 @@ final class AppModel {
     var message: String?
     /// An invite ready for the share sheet; cleared once shown.
     var invite: PendingInvite?
+    /// A receipt being read or reviewed.
+    private(set) var scan: ScanState?
+    private var scanTask: Task<Void, Never>?
 
     private let core: Core
     /// Nil when this build has no server.
@@ -102,6 +112,7 @@ final class AppModel {
     }
 
     func close() {
+        closeScan()
         detail = nil
         Task { await refreshGroups() }
     }
@@ -199,6 +210,79 @@ final class AppModel {
 
     func deleteTransaction(_ id: String) async {
         await inGroup { core, _ in try core.deleteTransaction(transactionId: id) }
+    }
+
+    // MARK: - Receipts (ADR 0008)
+
+    /// Reads a receipt photo (already downscaled JPEG) through the server, then opens the
+    /// review with everyone on every item.
+    func scanReceipt(jpeg: Data) {
+        guard let transport = transportOrExplain(), let d = detail else { return }
+        scan = .reading
+        scanTask?.cancel()
+        let groupId = d.group.id
+        scanTask = Task {
+            let scanned = await run { core in
+                try core.scanReceipt(transport: transport, groupId: groupId, image: jpeg, mime: "image/jpeg")
+            }
+            guard !Task.isCancelled, scan == .reading else { return }
+            guard let scanned else {
+                scan = nil
+                return
+            }
+            let active = d.members.filter(\.active)
+            let payer = d.meId.flatMap { me in active.contains { $0.id == me } ? me : nil } ?? active.first?.id ?? ""
+            scan = .review(ReceiptDraft.from(
+                scanned, exponent: exponent(of: scanned.currency) ?? d.exponent,
+                everyone: Set(active.map(\.id)), payerId: payer, today: DateDays.today,
+                untitled: String(localized: "Receipt")))
+        }
+    }
+
+    /// Couldn't turn the picked image into a JPEG.
+    func receiptImageFailed() {
+        message = String(localized: "Couldn’t open that image. Try another one.")
+    }
+
+    func editReceipt(_ change: (inout ReceiptDraft) -> Void) {
+        guard case .review(var draft) = scan else { return }
+        change(&draft)
+        scan = .review(draft)
+    }
+
+    /// Leaves the scan: a reading in flight is dropped when it comes back.
+    func closeScan() {
+        scanTask?.cancel()
+        scanTask = nil
+        scan = nil
+    }
+
+    /// Saves the reviewed receipt as one expense with an item per line. The draft stays
+    /// open if saving fails, so nothing typed is lost.
+    func saveReceipt() async {
+        guard case .review(let draft) = scan, let d = detail,
+              let exp = exponent(of: draft.currency) else { return }
+        let foreign = draft.currency != d.group.baseCurrency
+        let items = draft.items(exponent: exp, memberOrder: d.members.map(\.id))
+        let title = draft.title.trimmingCharacters(in: .whitespaces)
+        let rate = foreign ? Money.parseRate(draft.rate) : nil
+        await inGroup { core, d in
+            _ = try core.saveTransaction(t: TransactionDto(
+                id: nil, groupId: d.group.id, kind: .expense, title: title, payerId: draft.payerId,
+                currency: draft.currency, fxRate: rate, dateDays: draft.dateDays, items: items,
+                baseTotalMinor: nil))
+        } onSuccess: { scan = nil }
+    }
+
+    /// What each member owes for the draft, summed over its items exactly as the core splits them.
+    func receiptShares(_ draft: ReceiptDraft, memberOrder: [String]) -> [String: Int64] {
+        guard let exp = exponent(of: draft.currency) else { return [:] }
+        var totals: [String: Int64] = [:]
+        for item in draft.items(exponent: exp, memberOrder: memberOrder) {
+            guard let parts = try? previewSplit(totalMinor: item.totalMinor, shares: item.shares) else { return [:] }
+            for (share, part) in zip(item.shares, parts) { totals[share.memberId, default: 0] += part }
+        }
+        return totals
     }
 
     // MARK: - Sharing (ADR 0006/0007)
@@ -358,6 +442,13 @@ final class AppModel {
             switch code {
             case "not_found": return String(localized: "That invite link isn’t valid any more. Ask for a new one.")
             case "forbidden": return String(localized: "Only the person who shared this group can do that.")
+            case "receipts_disabled":
+                return String(localized: "Receipt scanning isn’t available on this server yet.")
+            case "limit_reached": return String(localized: "No receipt scans left for now. Try again tomorrow.")
+            case "unreadable":
+                return String(localized: "Couldn’t read a receipt in that photo. Try again with the whole receipt flat, in focus and well lit.")
+            case "provider_failed": return String(localized: "The receipt reader isn’t responding. Try again in a moment.")
+            case "too_large": return String(localized: "Couldn’t open that image. Try another one.")
             default: return String(localized: "The server couldn’t handle that right now. Try again in a moment.")
             }
         }
