@@ -18,7 +18,7 @@ Last updated: 2026-10-31 (session 4)
 ## Next sessions (from 2026-10-31), in order — see PLAN §4.2
 
 1. ~~**P0 public-repo prep**~~ done (current files cleaned, history kept; issue/PR texts edited). The owner switches the repo to public.
-2. **M4 iOS → TestFlight**: app and CI done (#72, #74); first upload as soon as the owner's Apple setup is in (see *Needs the owner*). Then simulator screenshots in CI and parity items.
+2. **M4 iOS → TestFlight**: app and CI done (#72, #74); TestFlight uploads work (#78), testers pending (see *Needs the owner*). Then simulator screenshots in CI and parity items.
 3. **B1 Pi** (weekend, when the owner turns the Pi on): 64-bit OS + Docker, `deploy/deploy.sh`, Tailscale Funnel URL → release `SYNC_URL`; then B2 Android beta build.
 4. M7a receipt evaluation.
 
@@ -107,7 +107,6 @@ The dev password is local-only; never reuse it for a hosted database.
 - Since the repo is public (2026-10-31) the `Protect main` ruleset is enforced: PR only, squash only, required checks (Rust, Dependencies, No binaries / secrets), verified signatures, linear history.
 
 ## Needs the owner (open requests)
-- **SSH signing key on GitHub** (blocks every merge since the repo went public): the `Protect main` ruleset requires verified signatures, and the commit-signing key `~/.ssh/id_ed25519_github_wsl.pub` isn't registered as a *signing* key. GitHub → Settings → SSH and GPG keys → New SSH key → Key type **Signing Key**, paste that public key. Or `gh auth refresh -h github.com -s admin:ssh_signing_key` and I add it.
 - **TestFlight testers**: add the flatmates as internal testers ([ios/README.md § TestFlight](../ios/README.md#testflight), step 5). Apple setup and secrets are done; the first build is uploaded.
 - **Raspberry Pi** this weekend: say when it's on; 64-bit Raspberry Pi OS, SSH key, Docker, Tailscale.
 - **Beta hosting**: decided 2026-10-30, Raspberry Pi 4B with Tailscale Funnel (an SSD instead of the SD card if possible). A VPS (Hetzner CAX11 ≈€4.5–5/month) stays the fallback.
