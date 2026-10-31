@@ -218,7 +218,7 @@ fun AddExpenseScreen(d: GroupDetail, vm: AppViewModel, onDone: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PayerPicker(
+internal fun PayerPicker(
     d: GroupDetail,
     options: List<Pair<String, String>>,
     selected: String?,

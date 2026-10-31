@@ -27,5 +27,15 @@
                 <data android:scheme="dibillsion" android:host="join" />
             </intent-filter>
         </activity>
+        <!-- Lets the camera app write the receipt photo into our cache. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/receipt_paths" />
+        </provider>
     </application>
 </manifest>

@@ -24,7 +24,12 @@ pub struct HttpRequest {
     pub token: Option<String>,
     /// JSON body.
     pub body: Option<String>,
+    /// How long to wait for the answer: short for sync, long for a receipt scan.
+    pub timeout_secs: u32,
 }
+
+/// Sync requests are small; past this the phone is as good as offline.
+pub(crate) const SYNC_TIMEOUT_SECS: u32 = 15;
 
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct HttpResponse {
@@ -220,7 +225,7 @@ fn group_id_checked(core: &Core, id: &str) -> Result<GroupId, CoreError> {
     Ok(group)
 }
 
-/// Sends one request; non-2xx answers become [`CoreError::Server`].
+/// Sends one sync request; non-2xx answers become [`CoreError::Server`].
 pub(crate) fn send(
     transport: &dyn HttpTransport,
     method: &str,
@@ -228,11 +233,24 @@ pub(crate) fn send(
     token: Option<&str>,
     body: Option<String>,
 ) -> Result<String, CoreError> {
+    send_timed(transport, method, path, token, body, SYNC_TIMEOUT_SECS)
+}
+
+/// [`send`] with its own timeout.
+pub(crate) fn send_timed(
+    transport: &dyn HttpTransport,
+    method: &str,
+    path: String,
+    token: Option<&str>,
+    body: Option<String>,
+    timeout_secs: u32,
+) -> Result<String, CoreError> {
     let res = transport.request(HttpRequest {
         method: method.to_owned(),
         path,
         token: token.map(str::to_owned),
         body,
+        timeout_secs,
     })?;
     if (200..300).contains(&res.status) {
         return Ok(res.body);

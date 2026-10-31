@@ -119,4 +119,32 @@
     <string name="join_body">Pega el enlace o el código de invitación que te han enviado.</string>
     <string name="invite_link_or_code">Enlace o código de invitación</string>
     <string name="err_no_sync">Esta versión de la app aún no está conectada a un servidor de sincronización.</string>
+    <string name="scan_receipt">Escanear ticket</string>
+    <string name="take_photo">Hacer una foto</string>
+    <string name="choose_image">Elegir una imagen</string>
+    <string name="reading_receipt">Leyendo el ticket…</string>
+    <string name="reading_receipt_hint">Tarda unos segundos. Después podrás revisarlo y corregirlo todo.</string>
+    <string name="receipt">Ticket</string>
+    <string name="check_receipt">Revisa el ticket</string>
+    <string name="discard_receipt">¿Descartar este ticket?</string>
+    <string name="receipt_items_hint">Toca a las personas para elegir quién comparte cada artículo. Mientras no lo hagas, lo comparten todos.</string>
+    <string name="item">Artículo</string>
+    <string name="add_item">Añadir artículo</string>
+    <string name="delete_item">Eliminar artículo</string>
+    <string name="includes_discount">Incluye un descuento de %1$s</string>
+    <string name="per_person">Por persona</string>
+    <string name="receipt_adds_up">Los artículos suman el total del ticket, %1$s.</string>
+    <string name="receipt_mismatch">Los artículos suman %1$s, pero el ticket dice %2$s. Revisa los importes.</string>
+    <string name="receipt_no_total">No se ha encontrado el total en el ticket. Los artículos suman %1$s.</string>
+    <string name="error_item_amount">Cada artículo necesita un importe válido (0 si es gratis).</string>
+    <string name="error_item_nobody">Cada artículo necesita al menos una persona.</string>
+    <plurals name="scans_left">
+        <item quantity="one">Te queda %1$d escaneo hoy</item>
+        <item quantity="other">Te quedan %1$d escaneos hoy</item>
+    </plurals>
+    <string name="err_receipts_disabled">El escaneo de tickets aún no está disponible en este servidor.</string>
+    <string name="err_limit_reached">No te quedan escaneos de tickets por ahora. Prueba mañana.</string>
+    <string name="err_unreadable">No se ha podido leer un ticket en esa foto. Prueba otra vez con el ticket entero, plano, enfocado y con buena luz.</string>
+    <string name="err_provider_failed">El lector de tickets no responde. Prueba de nuevo en un momento.</string>
+    <string name="err_image">No se ha podido abrir esa imagen. Prueba con otra.</string>
 </resources>

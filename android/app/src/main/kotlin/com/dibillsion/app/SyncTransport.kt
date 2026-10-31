@@ -21,8 +21,9 @@ class SyncTransport(private val baseUrl: String) : HttpTransport {
         }
         try {
             conn.requestMethod = request.method
-            conn.connectTimeout = TIMEOUT_MS
-            conn.readTimeout = TIMEOUT_MS
+            conn.connectTimeout = CONNECT_TIMEOUT_MS
+            // The core says how long the answer may take: seconds for sync, minutes for a scan.
+            conn.readTimeout = request.timeoutSecs.toInt() * 1000
             conn.setRequestProperty("Accept", "application/json")
             request.token?.let { conn.setRequestProperty("Authorization", "Bearer $it") }
             request.body?.let { body ->
@@ -42,6 +43,6 @@ class SyncTransport(private val baseUrl: String) : HttpTransport {
     }
 
     private companion object {
-        const val TIMEOUT_MS = 10_000
+        const val CONNECT_TIMEOUT_MS = 10_000
     }
 }

@@ -1,6 +1,11 @@
 package com.dibillsion.app.ui
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -45,6 +50,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -73,12 +79,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dibillsion.app.AppViewModel
 import com.dibillsion.app.GroupDetail
+import com.dibillsion.app.ScanState
+import androidx.core.content.FileProvider
+import java.io.File
 import com.dibillsion.app.Money
 import com.dibillsion.app.R
 import com.dibillsion.app.UiState
@@ -91,6 +101,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlin.math.abs
+
+private enum class Editor { NONE, EXPENSE, READING, RECEIPT }
 
 private val Tabs = listOf(R.string.tab_expenses, R.string.tab_balances, R.string.tab_people)
 
@@ -105,22 +117,28 @@ fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
         context.startActivity(Intent.createChooser(send, null))
         vm.inviteShown()
     }
-    // The expense editor rises from the bottom and sinks back when closed.
+    // Editors rise from the bottom and sink back when closed.
+    val screen = when (state.scan) {
+        is ScanState.Reading -> Editor.READING
+        is ScanState.Review -> Editor.RECEIPT
+        null -> if (adding) Editor.EXPENSE else Editor.NONE
+    }
     AnimatedContent(
-        targetState = adding,
+        targetState = screen,
         transitionSpec = {
-            if (targetState) {
+            if (targetState.ordinal > initialState.ordinal) {
                 (slideInVertically { it / 4 } + fadeIn()).togetherWith(fadeOut())
             } else {
                 fadeIn().togetherWith(slideOutVertically { it / 4 } + fadeOut())
             }
         },
         label = "editor",
-    ) { editing ->
-        if (editing) {
-            AddExpenseScreen(d, vm, onDone = { adding = false })
-        } else {
-            GroupBody(d, state, vm, onAdd = { adding = true })
+    ) { editor ->
+        when (editor) {
+            Editor.EXPENSE -> AddExpenseScreen(d, vm, onDone = { adding = false })
+            Editor.READING -> ReadingReceiptScreen(onCancel = vm::closeScan)
+            Editor.RECEIPT -> (state.scan as? ScanState.Review)?.let { ReceiptReviewScreen(d, it.draft, vm) }
+            Editor.NONE -> GroupBody(d, state, vm, onAdd = { adding = true })
         }
     }
     ErrorDialog(state.error, vm::dismissError)
@@ -222,11 +240,14 @@ private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: (
         },
         floatingActionButton = {
             when (pager.currentPage) {
-                0 -> ExtendedFloatingActionButton(
-                    onClick = onAdd,
-                    icon = { Icon(Icons.Filled.Add, null) },
-                    text = { Text(stringResource(R.string.add_expense)) },
-                )
+                0 -> Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ScanButton(vm)
+                    ExtendedFloatingActionButton(
+                        onClick = onAdd,
+                        icon = { Icon(Icons.Filled.Add, null) },
+                        text = { Text(stringResource(R.string.add_expense)) },
+                    )
+                }
                 2 -> ExtendedFloatingActionButton(
                     onClick = { addingPerson = true },
                     icon = { Icon(Icons.Filled.Add, null) },
@@ -642,4 +663,47 @@ private fun AddPersonDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+/** Scan a receipt: a photo now, or an image already on the phone. */
+@Composable
+private fun ScanButton(vm: AppViewModel) {
+    val context = LocalContext.current
+    var choosing by remember { mutableStateOf(false) }
+    // The camera app writes into our cache through a content URI; no camera permission needed.
+    val photo: Uri = remember {
+        val file = File(context.cacheDir, "receipts/photo.jpg").apply { parentFile?.mkdirs() }
+        FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+    }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
+        if (taken) vm.scanReceipt(photo)
+    }
+    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let(vm::scanReceipt)
+    }
+    Box {
+        SmallFloatingActionButton(onClick = { choosing = true }) {
+            Icon(painterResource(R.drawable.ic_receipt), stringResource(R.string.scan_receipt))
+        }
+        DropdownMenu(expanded = choosing, onDismissRequest = { choosing = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.take_photo)) },
+                onClick = {
+                    choosing = false
+                    try {
+                        camera.launch(photo)
+                    } catch (_: ActivityNotFoundException) {
+                        gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.choose_image)) },
+                onClick = {
+                    choosing = false
+                    gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                },
+            )
+        }
+    }
 }
