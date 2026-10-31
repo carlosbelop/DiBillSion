@@ -22,8 +22,10 @@ use uuid::Uuid;
 
 pub use dibill_domain as domain;
 
+mod receipt;
 mod sync;
 
+pub use receipt::{ScannedItemDto, ScannedReceiptDto};
 pub use sync::{HttpRequest, HttpResponse, HttpTransport, SyncSummary, TransportError};
 
 uniffi::setup_scaffolding!();

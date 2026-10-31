@@ -77,7 +77,7 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 - [ ] Run candidates (owner: provider choice and a key) and pick the cheapest model over the bar. More receipts first (aim: 30+).
 
 ### M7b: scanning in the app
-- [ ] Server: `POST /v1/receipts` (downscaled image → model → validated items), provider key only on the server, per-device credits and daily limits, global monthly budget cap.
+- [x] Server: `POST /v1/receipts/scan` (base64 image → configured model → validated answer with one repair retry), provider key only on the server (`RECEIPT_*` env, off without it), per-device daily limit and global monthly cap counted in `receipt_scans` (no image stored), new error codes `receipts_disabled`, `limit_reached`, `unreadable`, `provider_failed`. Core `scan_receipt` normalizes into minor units of the group's currency. Deploy kit passes the settings ([deploy/README §4](../deploy/README.md)). ([#84](https://github.com/carlosbelop/DiBillSion/pull/84))
 - [ ] Android: camera/gallery, downscale (~1600 px JPEG), progress, editable item list, assign people per item, save as one multi-item expense.
 
 ### M4: iOS (no Mac needed for building)
@@ -99,6 +99,10 @@ DATABASE_URL=postgres://postgres:dibill@127.0.0.1:55432/dibill cargo run -p dibi
 adb reverse tcp:8080 tcp:8080   # the debug app talks to http://127.0.0.1:8080
 ```
 Server tests locally: `DATABASE_URL=postgres://postgres:dibill@127.0.0.1:55432/postgres cargo nextest run -p dibill-server`.
+Without Docker (WSL without Docker Desktop): PostgreSQL 16 binaries unpacked from the Ubuntu packages
+(`apt-get download postgresql-16 postgresql-client-16 libpq5`, `dpkg -x` into
+`~/.local/share/dibillsion-tools/pg/root`), cluster in `~/.local/share/dibillsion-tools/pg/data` (same
+port and password): `LD_LIBRARY_PATH=$P/root/usr/lib/x86_64-linux-gnu $P/root/usr/lib/postgresql/16/bin/pg_ctl -D $P/data -o "-p 55432 -k /tmp -c listen_addresses=127.0.0.1" -l $P/log start`.
 The dev password is local-only; never reuse it for a hosted database.
 
 ## Known issues and tech debt

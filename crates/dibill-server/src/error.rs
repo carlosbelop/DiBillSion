@@ -18,6 +18,14 @@ pub enum AppError {
     TooLarge(String),
     #[error("{0}")]
     Internal(String),
+    #[error("receipt scanning is not configured on this server")]
+    ReceiptsDisabled,
+    #[error("{0}")]
+    LimitReached(String),
+    #[error("no receipt could be read in the image")]
+    Unreadable,
+    #[error("the receipt reader is unavailable; try again later")]
+    ProviderFailed,
     #[error(transparent)]
     Db(#[from] tokio_postgres::Error),
     #[error(transparent)]
@@ -32,6 +40,12 @@ impl IntoResponse for AppError {
             Self::NotFound(_) => (StatusCode::NOT_FOUND, ErrorCode::NotFound),
             Self::Invalid(_) => (StatusCode::BAD_REQUEST, ErrorCode::InvalidRequest),
             Self::TooLarge(_) => (StatusCode::PAYLOAD_TOO_LARGE, ErrorCode::TooLarge),
+            Self::ReceiptsDisabled => {
+                (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::ReceiptsDisabled)
+            }
+            Self::LimitReached(_) => (StatusCode::TOO_MANY_REQUESTS, ErrorCode::LimitReached),
+            Self::Unreadable => (StatusCode::UNPROCESSABLE_ENTITY, ErrorCode::Unreadable),
+            Self::ProviderFailed => (StatusCode::BAD_GATEWAY, ErrorCode::ProviderFailed),
             Self::Internal(_) | Self::Db(_) | Self::Pool(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, ErrorCode::Internal)
             }

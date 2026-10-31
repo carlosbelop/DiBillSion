@@ -73,13 +73,13 @@ fn parse_group(id: &str) -> Result<GroupId, CoreError> {
     uuid(id).map(GroupId)
 }
 
-fn json<T: Serialize>(value: &T) -> Result<String, CoreError> {
+pub(crate) fn json<T: Serialize>(value: &T) -> Result<String, CoreError> {
     serde_json::to_string(value).map_err(|e| CoreError::InvalidInput {
         reason: e.to_string(),
     })
 }
 
-fn parse<T: DeserializeOwned>(body: &str) -> Result<T, CoreError> {
+pub(crate) fn parse<T: DeserializeOwned>(body: &str) -> Result<T, CoreError> {
     serde_json::from_str(body).map_err(|e| CoreError::Server {
         code: "invalid_response".into(),
         reason: e.to_string(),
@@ -221,7 +221,7 @@ fn group_id_checked(core: &Core, id: &str) -> Result<GroupId, CoreError> {
 }
 
 /// Sends one request; non-2xx answers become [`CoreError::Server`].
-fn send(
+pub(crate) fn send(
     transport: &dyn HttpTransport,
     method: &str,
     path: String,
@@ -254,7 +254,10 @@ fn send(
 
 impl Core {
     /// This device's token, registering it on first use.
-    fn ensure_registered(&self, transport: &dyn HttpTransport) -> Result<String, CoreError> {
+    pub(crate) fn ensure_registered(
+        &self,
+        transport: &dyn HttpTransport,
+    ) -> Result<String, CoreError> {
         let (token, device) = {
             let store = self.store();
             (store.sync_token()?, store.device_id()?)

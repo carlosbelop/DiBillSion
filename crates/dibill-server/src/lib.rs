@@ -1,26 +1,34 @@
 //! The sync relay (ADR 0006): registers devices, lets them share groups and
 //! relays ops between member devices in a per-group order. It never reads op
-//! values; every money rule runs on the devices.
+//! values; every money rule runs on the devices. It also reads receipt photos
+//! with a vision model for the apps (ADR 0008).
 
 mod auth;
 mod error;
 mod extract;
+mod receipts;
 mod routes;
+
+use std::sync::Arc;
 
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{get, post, put};
 use deadpool_postgres::{Manager, ManagerConfig, RecyclingMethod};
-use dibill_proto::{API_PREFIX, MAX_BODY_BYTES};
+use dibill_proto::{API_PREFIX, MAX_BODY_BYTES, MAX_RECEIPT_BYTES};
 use tokio_postgres::NoTls;
 use tower_http::compression::CompressionLayer;
 use tower_http::trace::TraceLayer;
 
 pub use deadpool_postgres::Pool;
 pub use error::AppError;
+pub use receipts::Receipts;
 
 /// Schema migrations, applied in order. Never edit a released one: append.
-const MIGRATIONS: &[&str] = &[include_str!("../migrations/0001_sync.sql")];
+const MIGRATIONS: &[&str] = &[
+    include_str!("../migrations/0001_sync.sql"),
+    include_str!("../migrations/0002_receipts.sql"),
+];
 
 /// Arbitrary key for the advisory lock that serializes concurrent migrations.
 const MIGRATION_LOCK: i64 = 0x0D1B_1115;
@@ -28,6 +36,7 @@ const MIGRATION_LOCK: i64 = 0x0D1B_1115;
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub db: Pool,
+    pub receipts: Arc<Receipts>,
 }
 
 /// A connection pool for `config` (no TLS: the database is reached on a private network).
@@ -87,7 +96,7 @@ pub async fn migrate(pool: &Pool) -> Result<(), AppError> {
 }
 
 /// The whole HTTP API on a migrated database.
-pub fn app(db: Pool) -> Router {
+pub fn app(db: Pool, receipts: Receipts) -> Router {
     let api = Router::new()
         .route("/devices", post(routes::register_device))
         .route("/groups/{id}", put(routes::share_group))
@@ -99,14 +108,23 @@ pub fn app(db: Pool) -> Router {
             "/groups/{id}/invites",
             post(routes::create_invite).delete(routes::delete_invite),
         )
-        .route("/invites/{code}/join", post(routes::join));
+        .route("/invites/{code}/join", post(routes::join))
+        .route(
+            "/receipts/scan",
+            // Base64 grows the image by a third.
+            post(receipts::scan)
+                .layer(DefaultBodyLimit::max(MAX_RECEIPT_BYTES / 3 * 4 + 64 * 1024)),
+        );
     Router::new()
         .route("/health", get(routes::health))
         .nest(API_PREFIX, api)
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
-        .with_state(AppState { db })
+        .with_state(AppState {
+            db,
+            receipts: Arc::new(receipts),
+        })
 }
 
 #[cfg(test)]

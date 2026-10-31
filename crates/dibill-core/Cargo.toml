@@ -19,8 +19,10 @@ required-features = ["bindgen"]
 bindgen = ["uniffi/cli"]
 
 [dependencies]
+base64 = "0.22"
 dibill-domain.workspace = true
 dibill-proto.workspace = true
+dibill-receipt.workspace = true
 dibill-store.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -626,8 +626,10 @@ dependencies = [
 name = "dibill-core"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "dibill-domain",
  "dibill-proto",
+ "dibill-receipt",
  "dibill-store",
  "serde",
  "serde_json",
@@ -652,6 +654,7 @@ dependencies = [
 name = "dibill-proto"
 version = "0.1.0"
 dependencies = [
+ "dibill-receipt",
  "serde",
  "serde_json",
  "uuid",
@@ -683,6 +686,7 @@ dependencies = [
  "deadpool-postgres",
  "dibill-domain",
  "dibill-proto",
+ "dibill-receipt",
  "dibill-store",
  "getrandom 0.3.4",
  "http-body-util",

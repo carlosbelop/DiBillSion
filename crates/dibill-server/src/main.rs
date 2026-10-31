@@ -1,5 +1,6 @@
-//! `dibill-server`: reads `DATABASE_URL` (PostgreSQL) and `DIBILL_BIND`
-//! (default `127.0.0.1:8080`), migrates the database and serves the API.
+//! `dibill-server`: reads `DATABASE_URL` (PostgreSQL), `DIBILL_BIND`
+//! (default `127.0.0.1:8080`) and the optional `RECEIPT_*` provider settings
+//! ([`dibill_server::Receipts::from_env`]), migrates the database and serves the API.
 //! TLS is terminated in front of it (reverse proxy or platform).
 
 use tokio::net::TcpListener;
@@ -15,11 +16,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL is not set")?;
     let bind = std::env::var("DIBILL_BIND").unwrap_or_else(|_| "127.0.0.1:8080".to_owned());
 
+    let receipts = dibill_server::Receipts::from_env()?;
+    if let Some(model) = receipts.model() {
+        tracing::info!(%model, "receipt scanning on");
+    } else {
+        tracing::info!("receipt scanning off (RECEIPT_API_BASE/KEY/MODEL not set)");
+    }
     let db = dibill_server::pool(url.parse()?, 10)?;
     dibill_server::migrate(&db).await?;
     let listener = TcpListener::bind(&bind).await?;
     tracing::info!(%bind, version = env!("CARGO_PKG_VERSION"), "dibill-server listening");
-    axum::serve(listener, dibill_server::app(db))
+    axum::serve(listener, dibill_server::app(db, receipts))
         .with_graceful_shutdown(shutdown())
         .await?;
     Ok(())
