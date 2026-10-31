@@ -120,4 +120,32 @@
     <string name="join_body">Paste the invite link or code someone sent you.</string>
     <string name="invite_link_or_code">Invite link or code</string>
     <string name="err_no_sync">This version of the app isn’t connected to a sync server yet.</string>
+    <string name="scan_receipt">Scan receipt</string>
+    <string name="take_photo">Take a photo</string>
+    <string name="choose_image">Choose an image</string>
+    <string name="reading_receipt">Reading the receipt…</string>
+    <string name="reading_receipt_hint">This takes a few seconds. You can check and fix everything afterwards.</string>
+    <string name="receipt">Receipt</string>
+    <string name="check_receipt">Check the receipt</string>
+    <string name="discard_receipt">Discard this receipt?</string>
+    <string name="receipt_items_hint">Tap people to choose who shares each item. Everyone shares it until you do.</string>
+    <string name="item">Item</string>
+    <string name="add_item">Add item</string>
+    <string name="delete_item">Delete item</string>
+    <string name="includes_discount">Includes a %1$s discount</string>
+    <string name="per_person">Per person</string>
+    <string name="receipt_adds_up">Items add up to the receipt total, %1$s.</string>
+    <string name="receipt_mismatch">Items add up to %1$s but the receipt says %2$s. Check the amounts.</string>
+    <string name="receipt_no_total">No total found on the receipt. Items add up to %1$s.</string>
+    <string name="error_item_amount">Every item needs a valid amount (0 for free items).</string>
+    <string name="error_item_nobody">Every item needs at least one person.</string>
+    <plurals name="scans_left">
+        <item quantity="one">%1$d scan left today</item>
+        <item quantity="other">%1$d scans left today</item>
+    </plurals>
+    <string name="err_receipts_disabled">Receipt scanning isn’t available on this server yet.</string>
+    <string name="err_limit_reached">No receipt scans left for now. Try again tomorrow.</string>
+    <string name="err_unreadable">Couldn’t read a receipt in that photo. Try again with the whole receipt flat, in focus and well lit.</string>
+    <string name="err_provider_failed">The receipt reader isn’t responding. Try again in a moment.</string>
+    <string name="err_image">Couldn’t open that image. Try another one.</string>
 </resources>

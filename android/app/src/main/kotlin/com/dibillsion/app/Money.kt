@@ -34,6 +34,9 @@ object Money {
         return nf.format(BigDecimal.valueOf(minor, exponent)) + " " + code
     }
 
+    /** Minor units as plain editable text with a dot: 250 -> "2.50", for pre-filled fields. */
+    fun plain(minor: Long, exponent: Int): String = BigDecimal.valueOf(minor, exponent).toPlainString()
+
     /** Validates an exchange rate typed by the user and normalises it for the core. */
     fun parseRate(text: String): String? {
         val cleaned = text.trim().replace(',', '.')

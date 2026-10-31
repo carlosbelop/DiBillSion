@@ -1,6 +1,7 @@
 package com.dibillsion.app
 
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,6 +18,7 @@ import com.dibillsion.core.TransactionKindDto
 import com.dibillsion.core.currencyExponent
 import com.dibillsion.core.previewSplit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.time.LocalDate
 
 /** Everything one group's screen shows. */
@@ -54,7 +57,16 @@ data class UiState(
     val sharedIds: Set<String> = emptySet(),
     /** An invite ready to hand to the share sheet; cleared once shown. */
     val invite: PendingInvite? = null,
+    /** A receipt being read or reviewed in the open group. */
+    val scan: ScanState? = null,
 )
+
+sealed interface ScanState {
+    /** The photo is on its way to the server's model. */
+    data object Reading : ScanState
+
+    data class Review(val draft: ReceiptDraft) : ScanState
+}
 
 data class PendingInvite(val groupName: String, val code: String) {
     val link: String get() = "dibillsion://join/$code"
@@ -72,6 +84,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val transport: SyncTransport? = BuildConfig.SYNC_URL.takeIf { it.isNotEmpty() }?.let(::SyncTransport)
 
     private val _state = MutableStateFlow(UiState())
+    private var scanJob: Job? = null
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     init {
@@ -209,7 +222,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun closeGroup() {
-        _state.update { it.copy(detail = null) }
+        scanJob?.cancel()
+        _state.update { it.copy(detail = null, scan = null) }
         refreshGroups()
     }
 
@@ -245,6 +259,100 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 baseTotalMinor = null,
             ),
         )
+    }
+
+    /**
+     * Reads the receipt photo at [uri] (camera or gallery) through the server (ADR 0008),
+     * then opens the review screen with everyone on every item.
+     */
+    fun scanReceipt(uri: Uri) {
+        val t = transportOrExplain() ?: return
+        val d = _state.value.detail ?: return
+        val app = getApplication<Application>()
+        _state.update { it.copy(scan = ScanState.Reading) }
+        scanJob?.cancel()
+        scanJob = viewModelScope.launch {
+            val outcome: Any = withContext(Dispatchers.IO) {
+                try {
+                    core.scanReceipt(t, d.group.id, ReceiptImage.load(app, uri), "image/jpeg")
+                } catch (e: CoreException) {
+                    describe(e)
+                } catch (e: IOException) {
+                    Log.w("DiBillSion", "can't read image", e)
+                    app.getString(R.string.err_image)
+                } catch (e: SecurityException) {
+                    Log.w("DiBillSion", "can't read image", e)
+                    app.getString(R.string.err_image)
+                }
+            }
+            when (outcome) {
+                is com.dibillsion.core.ScannedReceiptDto -> {
+                    val active = d.members.filter { it.active }
+                    val draft = ReceiptDraft.from(
+                        r = outcome,
+                        exponent = exponentOf(outcome.currency) ?: d.exponent,
+                        everyone = active.map { it.id }.toSet(),
+                        payerId = d.meId?.takeIf { me -> active.any { it.id == me } } ?: active.firstOrNull()?.id,
+                        today = today(),
+                        untitled = app.getString(R.string.receipt),
+                    )
+                    _state.update { it.copy(scan = ScanState.Review(draft)) }
+                }
+                else -> _state.update { it.copy(scan = null, error = outcome as String) }
+            }
+        }
+    }
+
+    fun editReceipt(change: (ReceiptDraft) -> ReceiptDraft) = _state.update { s ->
+        val review = s.scan as? ScanState.Review ?: return@update s
+        s.copy(scan = ScanState.Review(change(review.draft)))
+    }
+
+    /** Leaves the scan: a reading in flight is dropped when it comes back. */
+    fun closeScan() {
+        scanJob?.cancel()
+        _state.update { it.copy(scan = null) }
+    }
+
+    /** Saves the reviewed receipt as one expense with an item per line. */
+    fun saveReceipt() {
+        val d = _state.value.detail ?: return
+        val draft = (_state.value.scan as? ScanState.Review)?.draft ?: return
+        val exponent = exponentOf(draft.currency) ?: return
+        val payer = draft.payerId ?: return
+        val foreign = draft.currency != d.group.baseCurrency
+        val tx = TransactionDto(
+            id = null,
+            groupId = d.group.id,
+            kind = TransactionKindDto.EXPENSE,
+            title = draft.title.trim(),
+            payerId = payer,
+            currency = draft.currency,
+            fxRate = if (foreign) Money.parseRate(draft.rate) else null,
+            dateDays = draft.dateDays,
+            items = draft.items(exponent, d.members.map { it.id }),
+            baseTotalMinor = null,
+        )
+        // The draft stays open if saving fails, so nothing typed is lost.
+        inGroup {
+            core.saveTransaction(tx)
+            _state.update { it.copy(scan = null) }
+        }
+    }
+
+    /** What each member owes for the draft, summed over its items exactly as the core splits them. */
+    fun receiptShares(draft: ReceiptDraft, memberOrder: List<String>): Map<String, Long> {
+        val exponent = exponentOf(draft.currency) ?: return emptyMap()
+        val totals = mutableMapOf<String, Long>()
+        for (item in draft.items(exponent, memberOrder)) {
+            val parts = try {
+                previewSplit(item.totalMinor, item.shares)
+            } catch (_: CoreException) {
+                return emptyMap()
+            }
+            item.shares.zip(parts).forEach { (share, part) -> totals.merge(share.memberId, part, Long::plus) }
+        }
+        return totals
     }
 
     /** Records a suggested reimbursement as paid (a transfer in the base currency). */
@@ -321,6 +429,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             is CoreException.Server -> when (e.code) {
                 "not_found" -> R.string.err_invite_invalid
                 "forbidden" -> R.string.err_forbidden
+                "receipts_disabled" -> R.string.err_receipts_disabled
+                "limit_reached" -> R.string.err_limit_reached
+                "unreadable" -> R.string.err_unreadable
+                "provider_failed" -> R.string.err_provider_failed
+                "too_large" -> R.string.err_image
                 else -> R.string.err_server
             }
         }

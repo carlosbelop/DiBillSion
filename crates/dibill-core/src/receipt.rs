@@ -8,8 +8,11 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use dibill_proto::{ScanReceipt, ScannedReceipt};
 
-use crate::sync::{json, parse, send};
+use crate::sync::{json, parse, send_timed};
 use crate::{Core, CoreError, GroupId, HttpTransport, uuid};
+
+/// The server may ask the model twice (repair retry), each up to its own timeout.
+const SCAN_TIMEOUT_SECS: u32 = 150;
 
 /// One line of a scanned receipt, discounts already folded in. Never negative.
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
@@ -60,12 +63,13 @@ impl Core {
             mime,
             currency: base.code().to_owned(),
         };
-        let body = send(
+        let body = send_timed(
             &*transport,
             "POST",
             "/v1/receipts/scan".into(),
             Some(&token),
             Some(json(&request)?),
+            SCAN_TIMEOUT_SECS,
         )?;
         let scanned: ScannedReceipt = parse(&body)?;
         let receipt = dibill_receipt::normalize(&scanned.receipt, base).map_err(|issues| {
@@ -138,6 +142,7 @@ mod tests {
                 ("POST", "/v1/receipts/scan")
             );
             assert_eq!(r.token.as_deref(), Some("t"));
+            assert_eq!(r.timeout_secs, SCAN_TIMEOUT_SECS);
             let req = serde_json::from_str(r.body.as_deref().unwrap_or_default()).unwrap();
             self.scans.lock().unwrap().push(req);
             Ok(HttpResponse {
