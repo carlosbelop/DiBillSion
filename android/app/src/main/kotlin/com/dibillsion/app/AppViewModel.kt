@@ -235,6 +235,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteTransaction(id: String) = inGroup { core.deleteTransaction(id) }
 
+    /** Adds [memberId] to, or removes them from, one item of a saved expense (ADR 0009). */
+    fun setItemMember(transactionId: String, itemIndex: Int, memberId: String, included: Boolean) =
+        inGroup { core.setItemMember(transactionId, itemIndex.toUInt(), memberId, included) }
+
+    /** Each share of [item] in its currency, as the core splits it; empty when it can't. */
+    fun itemShares(item: ItemDto): List<Long> = try {
+        previewSplit(item.totalMinor, item.shares)
+    } catch (_: CoreException) {
+        emptyList()
+    }
+
     /** An equal split of [amountMinor] between [among], paid by [payerId]. */
     fun addExpense(
         title: String,

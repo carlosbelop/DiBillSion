@@ -147,4 +147,11 @@
     <string name="err_unreadable">No se ha podido leer un ticket en esa foto. Prueba otra vez con el ticket entero, plano, enfocado y con buena luz.</string>
     <string name="err_provider_failed">El lector de tickets no responde. Prueba de nuevo en un momento.</string>
     <string name="err_image">No se ha podido abrir esa imagen. Prueba con otra.</string>
+    <string name="detail_items_hint">Toca a las personas para añadirlas o quitarlas de un artículo. Todo el grupo ve el cambio.</string>
+    <string name="each_pays">%1$s cada uno</string>
+    <string name="exact_amounts_item">Repartido por importes exactos: cámbialo desde el editor.</string>
+    <plurals name="items_count">
+        <item quantity="one">%1$d artículo</item>
+        <item quantity="other">%1$d artículos</item>
+    </plurals>
 </resources>

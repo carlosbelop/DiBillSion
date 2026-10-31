@@ -83,7 +83,7 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 
 ### M7c: receipt detail (owner request, 2026-10-31)
 - [x] Item membership synced per (item, member) so people can join or leave receipt items after saving and concurrent changes all survive ([ADR 0009](adr/0009-item-membership-ops.md)); store `set_item_share`, core `set_item_member`. ([#92](https://github.com/carlosbelop/DiBillSion/pull/92))
-- [ ] Android: tap an expense → detail with its items; tap people to join/leave each item.
+- [x] Android: tap an expense or income → detail (amount, payer, date, item count), every item with its people as chips (tap to add or remove; the last person can't leave, inactive people can only leave, exact-amount items are read-only), what each person pays per item and in total, delete. Builds and passes JVM tests; not yet tried on the phone (locked). ([#94](https://github.com/carlosbelop/DiBillSion/pull/94))
 - [ ] iOS: same.
 
 ### M4: iOS (no Mac needed for building)

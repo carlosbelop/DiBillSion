@@ -148,4 +148,11 @@
     <string name="err_unreadable">Couldn’t read a receipt in that photo. Try again with the whole receipt flat, in focus and well lit.</string>
     <string name="err_provider_failed">The receipt reader isn’t responding. Try again in a moment.</string>
     <string name="err_image">Couldn’t open that image. Try another one.</string>
+    <string name="detail_items_hint">Tap people to add or remove them from an item. Everyone in the group sees the change.</string>
+    <string name="each_pays">%1$s each</string>
+    <string name="exact_amounts_item">Split by exact amounts: change it from the editor.</string>
+    <plurals name="items_count">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
 </resources>
