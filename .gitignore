@@ -38,6 +38,9 @@ ios/**/DerivedData/
 ios/**/xcuserdata/
 ios/build/
 ios/*.xcframework/
+ios/Generated/
+ios/*.xcodeproj/
+ios/DiBillSion/Info.plist
 
 # --- Editors / OS ---
 .vscode/*

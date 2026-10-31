@@ -81,8 +81,8 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 - [ ] Android: camera/gallery, downscale (~1600 px JPEG), progress, editable item list, assign people per item, save as one multi-item expense.
 
 ### M4: iOS (no Mac needed for building)
-- [ ] macOS CI job: XCFramework of `dibill-core`, Swift bindings, SwiftUI app build, unit tests and simulator screenshots as artifacts.
-- [ ] SwiftUI screens at parity with Android.
+- [x] XCFramework + Swift bindings (`scripts/build-xcframework.sh`), SwiftUI app for the flat use case (XcodeGen, iOS 17+): groups, people, add expense with an equal split and live exact shares, balances with "you owe / you are owed" and settle, invite (share sheet) and join (link, code or `dibillsion://join/<code>`), who am I, pull-to-refresh and background sync over `URLSession`, English + Spanish. macOS CI workflow (`ios.yml`): build + unit tests on the simulator; while the repo is private it only runs with the `macos` PR label or manual dispatch. ([#72](https://github.com/carlosbelop/DiBillSion/pull/72))
+- [ ] Simulator screenshots as CI artifacts; remaining parity with Android (edit expenses, income, unequal splits, foreign-currency polish).
 - [ ] TestFlight (owner: Apple Developer Program, $99/year).
 
 ### Later
