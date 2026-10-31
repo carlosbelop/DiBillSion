@@ -1,0 +1,116 @@
+{
+  "merchant": "RESTAURANTE HERMANOS ALBA",
+  "date": "2025-08-13",
+  "currency": "EUR",
+  "items": [
+    {
+      "description": "MENU MEDIO DIA",
+      "quantity": "3",
+      "unit_price": null,
+      "total": "525.00"
+    },
+    {
+      "description": "CHAMPAGNE",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "110.00"
+    },
+    {
+      "description": "JARDIN DE VIVANS",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "575.00"
+    },
+    {
+      "description": "ROUSSEAU GEVREY CHAMBERTIN",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "285.00"
+    },
+    {
+      "description": "TINO KUBAN EN BUZIGNY RESE",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "575.00"
+    },
+    {
+      "description": "ARNAUX LACHAUX ECHEZEAUX 20",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1300.00"
+    },
+    {
+      "description": "ARNAUD LOPEZ BEAUNE 2023",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "100.00"
+    },
+    {
+      "description": "CLOS ROUGEARD LE BOURG 2019",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "295.00"
+    },
+    {
+      "description": "ERIC Y LIDIA HOUILLON BERAN",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "95.00"
+    },
+    {
+      "description": "TAVEL VINTAGE",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "0.00"
+    },
+    {
+      "description": "MUGNERET CHAMBOLLE MUSIGNY",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "360.00"
+    },
+    {
+      "description": "KEI SHIOGAI GEVREY CHAMBERT",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "590.00"
+    },
+    {
+      "description": "LOUIS BILLARD CHAMBOLLE MUS",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "160.00"
+    },
+    {
+      "description": "DOMAINE BIZOT",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1550.00"
+    },
+    {
+      "description": "MENU CENA",
+      "quantity": "3",
+      "unit_price": null,
+      "total": "270.00"
+    },
+    {
+      "description": "AGUA 1L NUMEN",
+      "quantity": "4",
+      "unit_price": null,
+      "total": "0.00"
+    },
+    {
+      "description": "AGUA 0,5L",
+      "quantity": "3",
+      "unit_price": null,
+      "total": "0.00"
+    },
+    {
+      "description": "CAFE/INFUSIONES",
+      "quantity": "5",
+      "unit_price": null,
+      "total": "0.00"
+    }
+  ],
+  "total": "6790.00"
+}

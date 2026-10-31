@@ -1,0 +1,37 @@
+[package]
+name = "dibill-receipt"
+description = "Receipt scanning (ADR 0008): model output schema, amounts without floats, normalization, provider client and eval harness."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "receipt-eval"
+required-features = ["eval"]
+
+[features]
+# The OpenAI-compatible HTTP client (server and harness; never in the apps).
+http = ["dep:base64", "dep:reqwest", "dep:rustls", "dep:tokio"]
+# The `receipt-eval` harness.
+eval = ["http", "dep:rust_decimal", "tokio/macros", "tokio/rt-multi-thread"]
+
+[dependencies]
+base64 = { version = "0.22", optional = true }
+dibill-domain.workspace = true
+reqwest = { version = "0.13", default-features = false, features = ["http2", "rustls-no-provider"], optional = true }
+rust_decimal = { workspace = true, optional = true }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"], optional = true }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { version = "1", features = ["sync", "time"], optional = true }
+
+[dev-dependencies]
+axum = "0.8"
+proptest.workspace = true
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
+
+[lints]
+workspace = true

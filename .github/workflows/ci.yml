@@ -46,8 +46,9 @@ jobs:
         with:
           tool: cargo-nextest,cargo-llvm-cov
       - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets --locked
-      - run: cargo llvm-cov nextest --workspace --locked --lcov --output-path lcov.info
+      # `dibill-receipt/eval` also builds the HTTP client and the eval harness.
+      - run: cargo clippy --workspace --all-targets --locked --features dibill-receipt/eval
+      - run: cargo llvm-cov nextest --workspace --locked --features dibill-receipt/eval --lcov --output-path lcov.info
       - uses: actions/upload-artifact@v7
         with:
           name: coverage
