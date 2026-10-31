@@ -4,15 +4,18 @@
 # macOS only (Xcode). Usage:
 #   scripts/build-xcframework.sh           # device + simulator, `mobile` profile (release)
 #   scripts/build-xcframework.sh --sim     # simulator only, debug (fast; CI tests)
+#   scripts/build-xcframework.sh --device  # device only, `mobile` profile (archives for TestFlight)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 profile=mobile
 targets=(aarch64-apple-ios aarch64-apple-ios-sim)
-if [[ "${1:-}" == "--sim" ]]; then
-  profile=dev
-  targets=(aarch64-apple-ios-sim)
-fi
+case "${1:-}" in
+  --sim) profile=dev; targets=(aarch64-apple-ios-sim) ;;
+  --device) targets=(aarch64-apple-ios) ;;
+  "") ;;
+  *) echo "usage: $0 [--sim|--device]" >&2; exit 2 ;;
+esac
 out=ios/Generated
 export IPHONEOS_DEPLOYMENT_TARGET=17.0
 

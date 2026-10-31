@@ -1,0 +1,106 @@
+name: TestFlight
+
+# Manual run (Actions → TestFlight → Run workflow) or a pushed `ios-v*` tag: signed Release
+# archive, uploaded to App Store Connect for internal testers. On PRs: an unsigned device
+# archive only, to catch Release-only build problems (same private-repo gating as ios.yml).
+on:
+  workflow_dispatch:
+  push:
+    tags: ['ios-v*']
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - ios/**
+      - scripts/build-xcframework.sh
+      - .github/workflows/testflight.yml
+
+concurrency:
+  group: testflight-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  UPLOAD: ${{ github.event_name != 'pull_request' }}
+
+# Explicit bash gets `-eo pipefail`, so `| xcbeautify` can't hide a failure.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  archive:
+    name: Archive (and upload to TestFlight)
+    if: >-
+      github.event_name != 'pull_request'
+      || !github.event.repository.private
+      || contains(github.event.pull_request.labels.*.name, 'macos')
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      # Beta server URL (repository variable). Without it the build can't invite or sync.
+      SYNC_URL: ${{ vars.SYNC_URL }}
+    steps:
+      - name: Check the signing secrets
+        if: env.UPLOAD == 'true'
+        run: |
+          missing=()
+          for v in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_TEAM_ID; do
+            [[ -n "${!v}" ]] || missing+=("$v")
+          done
+          if (( ${#missing[@]} )); then
+            echo "::error::Missing repository secrets: ${missing[*]} (see ios/README.md, TestFlight)"; exit 1
+          fi
+          [[ -n "$SYNC_URL" ]] || echo "::warning::vars.SYNC_URL is empty: this build can't sync or invite."
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+      - run: brew install xcodegen
+      - run: scripts/build-xcframework.sh --device
+      - run: cd ios && xcodegen
+      - name: API key
+        if: env.UPLOAD == 'true'
+        run: |
+          key="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
+          # Accept the .p8 as pasted, or base64-encoded.
+          if grep -q "BEGIN PRIVATE KEY" <<<"$ASC_KEY_P8"; then
+            printf '%s\n' "$ASC_KEY_P8" > "$key"
+          else
+            base64 --decode <<<"$ASC_KEY_P8" > "$key"
+          fi
+          echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
+      - name: Archive
+        run: |
+          if [[ $UPLOAD == true ]]; then
+            signing=(-allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH"
+                     -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+                     DEVELOPMENT_TEAM="$APPLE_TEAM_ID")
+          else
+            signing=(CODE_SIGNING_ALLOWED=NO)
+          fi
+          xcodebuild archive -project ios/DiBillSion.xcodeproj -scheme DiBillSion \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -archivePath build/DiBillSion.xcarchive "${signing[@]}" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" SYNC_URL="$SYNC_URL" \
+            | xcbeautify --renderer github-actions
+      - name: Export and upload to App Store Connect
+        if: env.UPLOAD == 'true'
+        run: |
+          sed "s/TEAM_ID/$APPLE_TEAM_ID/" ios/ExportOptions.plist > "$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild -exportArchive -archivePath build/DiBillSion.xcarchive \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath build/export \
+            -allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            | xcbeautify --renderer github-actions
+          echo "Uploaded build ${{ github.run_number }}; it appears in TestFlight after processing (5–15 min)." >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP"/AuthKey_*.p8

@@ -18,7 +18,7 @@ Last updated: 2026-10-31 (session 4)
 ## Next sessions (from 2026-10-31), in order — see PLAN §4.2
 
 1. ~~**P0 public-repo prep**~~ done (current files cleaned, history kept; issue/PR texts edited). The owner switches the repo to public.
-2. **M4 iOS → TestFlight** (several PRs): macOS CI job (XCFramework + UniFFI Swift bindings), SwiftUI app for the flat use case, signing/upload with an App Store Connect API key from GitHub secrets, internal testers.
+2. **M4 iOS → TestFlight**: app and CI done (#72, #74); first upload as soon as the owner's Apple setup is in (see *Needs the owner*). Then simulator screenshots in CI and parity items.
 3. **B1 Pi** (weekend, when the owner turns the Pi on): 64-bit OS + Docker, `deploy/deploy.sh`, Tailscale Funnel URL → release `SYNC_URL`; then B2 Android beta build.
 4. M7a receipt evaluation.
 
@@ -83,7 +83,8 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 ### M4: iOS (no Mac needed for building)
 - [x] XCFramework + Swift bindings (`scripts/build-xcframework.sh`), SwiftUI app for the flat use case (XcodeGen, iOS 17+): groups, people, add expense with an equal split and live exact shares, balances with "you owe / you are owed" and settle, invite (share sheet) and join (link, code or `dibillsion://join/<code>`), who am I, pull-to-refresh and background sync over `URLSession`, English + Spanish. macOS CI workflow (`ios.yml`): build + unit tests on the simulator; while the repo is private it only runs with the `macos` PR label or manual dispatch. ([#72](https://github.com/carlosbelop/DiBillSion/pull/72))
 - [ ] Simulator screenshots as CI artifacts; remaining parity with Android (edit expenses, income, unequal splits, foreign-currency polish).
-- [ ] TestFlight (owner: Apple Developer Program, $99/year).
+- [x] Signing + TestFlight upload from CI (`testflight.yml`, automatic signing with the App Store Connect API key, internal testing only; unsigned device archive on PRs). ([#74](https://github.com/carlosbelop/DiBillSion/pull/74))
+- [ ] First TestFlight build on the flatmates' iPhones (owner: secrets, app record, testers; see [ios/README.md](../ios/README.md#testflight)).
 
 ### Later
 M6 polish · M8 store release. See PLAN §4.
@@ -105,7 +106,7 @@ The dev password is local-only; never reuse it for a hosted database.
 - `main` isn't protected by GitHub (free plan, private repo). The PR workflow is self-enforced, and `.claude/settings.json` denies direct pushes to `main`.
 
 ## Needs the owner (open requests)
-- **Apple Developer Program**: enrolling 2026-10-31 (individual). Then create an App Store Connect API key (Issuer ID, Key ID, `.p8`) with App Manager access and add it as GitHub Actions secrets; send the flatmates' Apple ID emails for internal TestFlight testing.
+- **Apple Developer Program → TestFlight** (enrolled 2026-10-31, waiting for approval). Once approved, the five steps in [ios/README.md § TestFlight](../ios/README.md#testflight): Team ID secret, App ID `com.dibillsion.app`, app record, API key with **Admin** access (App Manager can't create the signing certificate from CI) as secrets `ASC_KEY_ID`/`ASC_ISSUER_ID`/`ASC_KEY_P8`, and the flatmates as internal testers (adding them yourself in App Store Connect keeps their emails out of this soon-public repo). Then tell me and I run the TestFlight workflow.
 - **Make the repo public** after the P0 cleanup PR is merged (Settings → General → Danger zone → Change visibility).
 - **Raspberry Pi** this weekend: say when it's on; 64-bit Raspberry Pi OS, SSH key, Docker, Tailscale.
 - **Beta hosting**: decided 2026-10-30, Raspberry Pi 4B with Tailscale Funnel (an SSD instead of the SD card if possible). A VPS (Hetzner CAX11 ≈€4.5–5/month) stays the fallback.
