@@ -84,7 +84,8 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 ### M7c: receipt detail (owner request, 2026-10-31)
 - [x] Item membership synced per (item, member) so people can join or leave receipt items after saving and concurrent changes all survive ([ADR 0009](adr/0009-item-membership-ops.md)); store `set_item_share`, core `set_item_member`. ([#92](https://github.com/carlosbelop/DiBillSion/pull/92))
 - [x] Android: tap an expense or income → detail (amount, payer, date, item count), every item with its people as chips (tap to add or remove; the last person can't leave, inactive people can only leave, exact-amount items are read-only), what each person pays per item and in total, delete. Builds and passes JVM tests; not yet tried on the phone (locked). ([#94](https://github.com/carlosbelop/DiBillSion/pull/94))
-- [ ] iOS: same.
+- [x] iOS: same, as a sheet from the expense list (items with people chips, per-person totals, delete). ([#96](https://github.com/carlosbelop/DiBillSion/pull/96))
+- [ ] Try it on both phones once the Pi is up (scan → save → each flatmate adjusts their items).
 
 ### M4: iOS (no Mac needed for building)
 - [x] XCFramework + Swift bindings (`scripts/build-xcframework.sh`), SwiftUI app for the flat use case (XcodeGen, iOS 17+): groups, people, add expense with an equal split and live exact shares, balances with "you owe / you are owed" and settle, invite (share sheet) and join (link, code or `dibillsion://join/<code>`), who am I, pull-to-refresh and background sync over `URLSession`, English + Spanish. macOS CI workflow (`ios.yml`): build + unit tests on the simulator; while the repo is private it only runs with the `macos` PR label or manual dispatch. ([#72](https://github.com/carlosbelop/DiBillSion/pull/72))

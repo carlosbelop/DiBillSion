@@ -212,6 +212,19 @@ final class AppModel {
         await inGroup { core, _ in try core.deleteTransaction(transactionId: id) }
     }
 
+    /// Adds `memberId` to, or removes them from, one item of a saved expense (ADR 0009).
+    func setItemMember(transactionId: String, itemIndex: Int, memberId: String, included: Bool) async {
+        await inGroup { core, _ in
+            try core.setItemMember(transactionId: transactionId, itemIndex: UInt32(itemIndex),
+                                   memberId: memberId, included: included)
+        }
+    }
+
+    /// Each share of `item` in its currency, as the core splits it; empty when it can't.
+    func itemShares(_ item: ItemDto) -> [Int64] {
+        (try? previewSplit(totalMinor: item.totalMinor, shares: item.shares)) ?? []
+    }
+
     // MARK: - Receipts (ADR 0008)
 
     /// Reads a receipt photo (already downscaled JPEG) through the server, then opens the

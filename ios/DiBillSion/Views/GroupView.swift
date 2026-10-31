@@ -140,6 +140,8 @@ private struct ExpensesSection: View {
     let d: GroupDetail
     @Environment(AppModel.self) private var model
     @State private var deleting: TransactionDto?
+    /// The expense or income open in its detail sheet.
+    @State private var opened: OpenedTransaction?
 
     var body: some View {
         if d.transactions.isEmpty {
@@ -160,13 +162,22 @@ private struct ExpensesSection: View {
             ForEach(days, id: \.self) { day in
                 Section(dayLabel(day)) {
                     ForEach(d.transactions.filter { $0.dateDays == day }, id: \.id) { t in
-                        row(t)
+                        Group {
+                            // Expenses and incomes open with their items; transfers have nothing more to show.
+                            if t.kind == .transfer {
+                                row(t)
+                            } else {
+                                Button { opened = t.id.map(OpenedTransaction.init) } label: { row(t) }
+                                    .foregroundStyle(.primary)
+                            }
+                        }
                             .swipeActions {
                                 Button("Delete", role: .destructive) { deleting = t }
                             }
                     }
                 }
             }
+            .sheet(item: $opened) { o in ExpenseDetailView(transactionId: o.id) }
             .confirmationDialog(deleting.map { String(localized: "Delete “\(title($0))”?") } ?? "",
                                 isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
                                 titleVisibility: .visible) {
@@ -225,6 +236,10 @@ private struct ExpensesSection: View {
             }
         }
     }
+}
+
+private struct OpenedTransaction: Identifiable {
+    let id: String
 }
 
 // MARK: - Balances
