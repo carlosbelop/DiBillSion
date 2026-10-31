@@ -103,15 +103,15 @@ jobs:
       - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
 
-  # Guard: study material must never land in the repo.
-  no-study-material:
-    name: No APK / decompiled code
+  # Guard: build outputs and secrets must never land in the repo.
+  no-binaries-or-secrets:
+    name: No binaries / secrets
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - run: |
-          if git ls-files | grep -E '(^|/)_study/|\.(apk|apks|aab|xapk|dex|smali)$'; then
-            echo "::error::Study material or APK files are tracked. Remove them."; exit 1
+          if git ls-files | grep -E '\.(apk|apks|aab|dex|so|a|xcframework|ipa|keystore|jks|p12|p8|mobileprovision)$|(^|/)\.env(\..*)?$' | grep -v '\.env\.example$'; then
+            echo "::error::Binaries or secrets are tracked. Remove them."; exit 1
           fi
 
   server-image:

@@ -1,29 +1,20 @@
-# DiBillSion — Plan: study Tricount with REA, then build a clean Rust-based expense splitter
+# DiBillSion — Plan: a Rust-based group expense splitter with receipt scanning
 
-> Status: M0–M2 done, M3 in progress. Live status and backlog: [STATUS.md](STATUS.md).
+> Status: M0–M3 and M5 done; M4 (iOS) in progress. Live status and backlog: [STATUS.md](STATUS.md).
 > Target: Android + iOS store release, with receipt scanning (VLM) added after the MVP.
 
 ---
 
 ## 0. Ground rules (read first)
 
-Studying how Tricount works is fine. Copying it is not. Its APK is bunq's copyrighted code, and "Tricount" is their trademark. Under EU law (Directive 2009/24/EC art. 6; in Spain, LPI art. 100), you may decompile only for interoperability. You may **not** use what you learn from decompiling to build a "substantially similar" program. Both Google Play (impersonation/IP policy) and Apple (App Review Guidelines 4.1 *Copycats* and 5.2 *Intellectual Property*) reject clones.
-
-So the project uses a **clean-room** split:
-
-| Track | Who / what | Output | Must NOT carry over |
-|---|---|---|---|
-| **A. Study** | REA + Claude + you using the app | A *functional spec*: features, flows, rules, edge cases, written in your own words | Code, smali, class names, strings, icons, images, colors, layouts, private API endpoints/keys |
-| **B. Build** | Fresh code, written only from the spec | DiBillSion app + your own backend | Nothing from the decompiled APK |
-
-Practical consequences:
-- Keep decompiler output in a separate folder (`_study/`, git-ignored). Never paste it into `src/`.
-- Don't call Tricount's backend. Build your own.
+- Original work only: our own code, name, icon, palette, copy and backend. No code, strings, icons,
+  images, layouts or API details from other apps.
+- Features, flows and calculation rules come from [SPEC.md](SPEC.md), written in our own words.
 - Pick your own name, icon, palette, and copy. "DiBillSion" works.
-- Get the APK only from your own device (`adb pull`), not from mirror sites. Those are untrusted and may be tampered with.
 - This isn't legal advice. Spend an hour with an IP lawyer before you publish.
 
-The reusable parts are generic anyway: group expenses, unequal shares, multiple currencies, debt simplification. These are common ideas, and well-known algorithms exist for them. The new value is your **receipt-to-line-items** feature.
+Group expenses, unequal shares, multiple currencies and debt simplification are common ideas with
+well-known algorithms. The new value is the **receipt-to-line-items** feature.
 
 ---
 
@@ -33,7 +24,7 @@ Everything except the Android emulator, Android Studio and iOS runs **inside WSL
 
 | Where | What |
 |---|---|
-| **WSL2 Ubuntu** (`~/proyectos/dibillsion`) | Git, Rust, REA + JADX + Apktool, adb, backend (Docker), Claude Code CLI |
+| **WSL2 Ubuntu** (`~/proyectos/dibillsion`) | Git, Rust, Android SDK/NDK, adb, backend (Docker), Claude Code CLI |
 | **Windows** | VS Code (with the *WSL* extension), Android Studio + emulator, Docker Desktop (WSL backend), USB passthrough (`usbipd-win`) |
 | **macOS** (Mac or CI runner) | iOS build, signing, TestFlight |
 
@@ -51,29 +42,11 @@ wsl --update
 cd ~/proyectos/dibillsion
 ./scripts/setup-ubuntu.sh          # asks for sudo once (apt)
 source ~/.bashrc
-npx rea-agents setup               # registers REA as an MCP server for Claude Code
 ```
 
 `scripts/setup-ubuntu.sh` is the single source of truth for versions. It's idempotent and works on WSL, native Ubuntu and CI.
 
-### 1.2 Study track tools (installed by the script)
-
-| Tool | Version | Why | Location / variable |
-|---|---|---|---|
-| OpenJDK (full JDK, `javac`) | 21 (apt `openjdk-21-jdk-headless`) | JADX bridge needs `jdk.compiler`. A JRE alone is not enough | system |
-| Node.js | 24.x (via nvm) | Runs REA (CLI + MCP) and its SQLite support | `~/.nvm` |
-| REA (`rea-agents`) | npm 4.1.0+ | MCP server + `rea` CLI | `npx rea-agents setup` |
-| jadx-headless-mcp | **0.7.1**, SHA-256 verified | Engine REA wraps for decompiling | `REA_JADX_MCP_JAR` |
-| Apktool | **3.0.3** (avoid < 2.9.3 and 3.0.0–3.0.1, known CVEs) | Resources + string tables | `REA_APKTOOL_COMMAND` (`~/.local/bin/apktool`) |
-| Android platform-tools | latest | `adb`: pull APK, logcat, dumpsys | `~/.local/bin/adb` |
-| *(optional)* JADX GUI | 1.5.x | Browse code by hand (runs via WSLg) | manual |
-
-REA tuning (set in `~/.bashrc` by the script): `REA_JADX_OPERATION_TIMEOUT_MS=600000`, `REA_JADX_HEAP_MIB=4096`.
-Raise the WSL memory limit if JADX runs out of heap: `%UserProfile%\.wslconfig` → `[wsl2]` `memory=12GB`.
-
-Not needed: Ghidra, IDA, Hopper, pwntools, Rizin, tshark (they're for native binaries). Tricount is very likely a native Kotlin app. Step 2.1 confirms it.
-
-### 1.3 Connecting the phone (USB) to WSL
+### 1.2 Connecting the phone (USB) to WSL
 
 WSL doesn't see USB devices by default. Pick one:
 
@@ -83,7 +56,7 @@ WSL doesn't see USB devices by default. Pick one:
   - Then `adb devices` works inside Ubuntu.
 - **B. Wireless debugging.** Android 11+: *Developer options → Wireless debugging*. Then in Ubuntu run `adb pair <ip>:<port>` followed by `adb connect <ip>:<port>`. No USB needed.
 
-### 1.4 Build track tools
+### 1.3 Build tools
 
 | Area | Tool | Where | Notes |
 |---|---|---|---|
@@ -96,73 +69,21 @@ WSL doesn't see USB devices by default. Pick one:
 | iOS | Xcode 16+ on macOS, targets `aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios`, XCFramework | Mac / CI | Can't be done on Windows or Linux |
 | CI | GitHub Actions: Linux for Rust/Android, macOS for iOS | GitHub | `.github/workflows/ci.yml` |
 
-### 1.5 Editor and GitHub
+### 1.4 Editor and GitHub
 
 - **VS Code:** install the *WSL* extension on Windows (and *rust-analyzer*, *Even Better TOML* inside WSL). Open the project with `code ~/proyectos/dibillsion` from Ubuntu.
 - **GitHub (personal account):** SSH key generated **inside WSL** (`ssh-keygen -t ed25519`), added to the personal GitHub account. Commit email = the account's `noreply` address. Repo is **private**. GitHub does not enforce branch protection on private repos on the free plan, so the PR + green CI workflow is self-enforced (see CLAUDE.md).
 
 ---
 
-## 2. Study track: steps with REA
+## 2. Functional spec
 
-Working folder: `_study/` (git-ignored). All of it is notes for the spec, not source code.
-
-### 2.0 Get the APK from your own phone
-In Ubuntu (WSL), with the phone connected as in 1.3:
-```bash
-adb devices
-adb shell pm list packages | grep -i tricount        # confirmed: com.tribab.tricount.android (v14.5.0, single APK)
-adb shell pm path com.tribab.tricount.android                # may list base.apk + split_config.*.apk
-adb pull <path-to-base.apk> _study/apk/tricount-base.apk
-```
-REA doesn't handle split APKs or AABs, so analyze `base.apk`. Pull the `split_config.<lang>.apk` / density splits only if resources seem missing.
-
-### 2.1 Triage: what is it built with?
-```
-rea inspect-android-package _study/apk/tricount-base.apk        # manifest, permissions, SDK, components, counts
-rea identify-flutter-build  _study/apk/tricount-base.apk        # rules Flutter in or out (libapp.so/libflutter.so)
-```
-Also check for `assets/index.android.bundle` / `libhermes.so` (React Native) and `kotlin/` metadata (Kotlin).
-Record: minSdk/targetSdk, permissions (camera? contacts?), exported activities, **deep-link intent filters** (how group invite links work), whether the code is R8-obfuscated, and third-party SDKs (analytics, crash reporting, billing).
-
-### 2.2 Resources and strings: the feature inventory
-```
-rea inspect-apktool-client
-rea decode-android-resources _study/apk/tricount-base.apk --locales en --locales es --string-tables-only
-```
-String tables list nearly every screen, label, error, and setting, so they make the best feature checklist. Turn them into a feature list **in your own words**. Don't copy the strings.
-
-### 2.3 Behavior: how each feature works
-Ask Claude (with the REA MCP loaded) targeted questions, for example:
-```
-rea search-android-classes  _study/apk/tricount-base.apk  Balance
-rea search-android-classes  _study/apk/tricount-base.apk  Expense
-rea inspect-android-class   _study/apk/tricount-base.apk  <class>
-rea inspect-android-method  _study/apk/tricount-base.apk  <class> <method>
-rea trace-android-references _study/apk/tricount-base.apk <class> --method-name <m>
-rea project-android-application-graph '{"inventory_evidence":[...]}'
-```
-Questions to answer (behavior only):
-1. **Data model.** Which entities exist (group, member, expense, share, transfer/reimbursement, currency, attachment, category)? Which fields are optional?
-2. **Split modes.** Equal, by amount, by shares/weights, by percentage? Can a member be excluded per expense?
-3. **Rounding.** Where does the leftover cent go when 10.00 is split 3 ways?
-4. **Multi-currency.** Is the rate fixed per expense or live? Where do rates come from? What is the group's base currency?
-5. **Balances and settle-up.** How are suggested reimbursements computed (min-transactions heuristic?), and is it deterministic?
-6. **Offline and sync.** Local DB (Room?), conflict handling, and how invite links / joining without an account work.
-7. **Export and extras.** CSV/PDF export, photo attachments, categories, statistics, notifications.
-
-### 2.4 Black-box observation (runtime, your own device)
-- Use the app through every flow and screenshot each one. This becomes the UX reference for **your own** design, not a template.
-- `adb logcat`, `adb shell dumpsys activity activities` show which screens exist and how navigation works.
-- Try edge cases: 0.01 amounts, 1-person groups, deleting a member who has expenses, mixed currencies, editing an old expense, and making changes on two phones at once.
-- Don't attack pinning or intercept traffic on their backend. You don't need it, because you'll design your own API.
-
-### 2.5 Deliverable: `docs/SPEC.md` (the only thing that crosses to Track B)
-Features, user stories, data model (your own names), calculation rules with worked examples, edge cases, and non-goals. From this point on, the build team (you + Claude) works only from SPEC.md.
+[`docs/SPEC.md`](SPEC.md): features, user stories, data model, calculation rules with worked
+examples, edge cases and non-goals. Code is written from the spec.
 
 ---
 
-## 3. Build track: architecture
+## 3. Architecture
 
 ### 3.1 Why Rust, and where
 
@@ -198,8 +119,7 @@ dibillsion/
 │  └─ dibill-server/          axum backend
 ├─ android/                   Compose app (Gradle), loads libdibill_core.so
 ├─ ios/                       SwiftUI app (Xcode), links DibillCore.xcframework
-├─ docs/SPEC.md
-└─ _study/                    (git-ignored) REA outputs, screenshots, notes
+└─ docs/SPEC.md
 ```
 
 ### 3.3 Crates
@@ -252,8 +172,8 @@ Splitting by **items** isn't something you bolt on later. It's the core shape, a
 
 | # | Milestone | Exit criteria |
 |---|---|---|
-| M0 | Tooling installed | `rea inspect-android-package` works on a test APK, `cargo ndk build` produces a `.so` |
-| M1 | Study complete | `docs/SPEC.md` approved. `_study/` stays out of git |
+| M0 | Tooling installed | `cargo ndk build` produces a `.so` |
+| M1 | Functional spec | `docs/SPEC.md` approved |
 | M2 | `dibill-domain` | Split, balance, and settle algorithms written, proptest invariants pass, benchmarks recorded |
 | M3 | Local-only app on Android | Create group, add members and expenses, see balances, all offline |
 | M4 | iOS shell | Same features on iOS from the same core |
@@ -287,9 +207,8 @@ simulator) and only pays off once the product is validated on Android.
 The owner moves into a shared flat on 2026-11-02 and both flatmates use iPhone. New order:
 
 1. **Public-repo prep (P0).** The owner will make this repo public so macOS CI runners are free.
-   Before that, the *current files* lose every reference or hint to the third-party app that was
-   studied (names, package ids, study plan, reverse-engineering tooling). Git history, commit
-   messages and old file versions stay as they are. The owner changes the visibility himself.
+   The current files are cleaned up first; git history stays as it is. The owner changes the
+   visibility himself.
 2. **M4 iOS → TestFlight internal testing.** The owner enrols in the Apple Developer Program
    (individual, $99/year) on 2026-10-31. Flatmates are added as internal testers (no beta review),
    so a build reaches them minutes after upload. First version = what a shared flat needs: groups,
@@ -302,19 +221,8 @@ The owner moves into a shared flat on 2026-11-02 and both flatmates use iPhone. 
 Meanwhile the group starts on the owner's Android phone (offline works); the flatmates join with
 an invite once the iOS build is out and pick their own placeholder member, keeping all history.
 
-Later, the owner plans a fresh repository written from scratch with no third-party app involved.
-
 ### Store prerequisites
 - Google Play Console account (one-time US$25) and Apple Developer Program (US$99/year).
 - Privacy policy URL, Play *Data safety* form, Apple *privacy nutrition labels*. Receipt images sent to a cloud VLM must be declared.
 - If you add Google sign-in, Apple requires Sign in with Apple too (or another privacy-preserving login option).
 - GDPR: account and data deletion inside the app (both stores require it), plus a DPA with the VLM provider.
-
----
-
-## 5. Next actions
-1. ~~Scaffold repo in WSL, write `dibill-domain` (split, balance, settle) with tests.~~ Done.
-2. Run `./scripts/setup-ubuntu.sh` with sudo (JDK, unzip, adb), then `npx rea-agents setup`.
-3. SSH key for the personal GitHub account, private repo, first push, protect `main`.
-4. Connect the phone (1.3), pull `base.apk` into `_study/apk/`.
-5. Run 2.1 triage and share the output. That confirms the stack and how big the analysis will be.

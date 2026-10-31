@@ -3,7 +3,6 @@
 target
 android
 ios
-_study
 docs
 deploy/backups
 deploy/.env

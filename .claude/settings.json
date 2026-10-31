@@ -8,10 +8,7 @@
       "Bash(git *)",
       "Bash(gh *)",
       "Bash(adb *)",
-      "Bash(apktool *)",
       "Bash(java *)",
-      "Bash(npx -y rea-agents *)",
-      "Bash(npx rea-agents *)",
       "Bash(./scripts/*)",
       "Bash(ls *)",
       "Bash(cat *)",
@@ -24,8 +21,7 @@
       "Bash(sha256sum *)",
       "Bash(mkdir *)",
       "Bash(docker compose *)",
-      "Edit(./**)",
-      "mcp__rea"
+      "Edit(./**)"
     ],
     "deny": [
       "Bash(sudo *)",
