@@ -94,8 +94,11 @@ struct ExpenseDetailView: View {
                 // Active people, plus inactive ones still in the item (they can only leave).
                 ForEach(d.members.filter { $0.active || inItem.contains($0.id) }, id: \.id) { m in
                     let on = inItem.contains(m.id)
-                    let enabled = byParts && !(on && inItem.count == 1) && (on || m.active)
+                    let last = on && inItem.count == 1
+                    // The last person stays shown as selected; tapping them does nothing.
+                    let enabled = byParts && (on || m.active)
                     Button {
+                        if last { return }
                         Task {
                             await model.setItemMember(transactionId: transactionId, itemIndex: index,
                                                       memberId: m.id, included: !on)

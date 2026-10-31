@@ -57,20 +57,21 @@ impl Core {
         mime: String,
     ) -> Result<ScannedReceiptDto, CoreError> {
         let base = self.store().group(GroupId(uuid(&group_id)?))?.base_currency;
-        let token = self.ensure_registered(&*transport)?;
-        let request = ScanReceipt {
+        let request = json(&ScanReceipt {
             image_base64: STANDARD.encode(&image),
             mime,
             currency: base.code().to_owned(),
-        };
-        let body = send_timed(
-            &*transport,
-            "POST",
-            "/v1/receipts/scan".into(),
-            Some(&token),
-            Some(json(&request)?),
-            SCAN_TIMEOUT_SECS,
-        )?;
+        })?;
+        let body = self.authed(&*transport, |token| {
+            send_timed(
+                &*transport,
+                "POST",
+                "/v1/receipts/scan".into(),
+                Some(token),
+                Some(request.clone()),
+                SCAN_TIMEOUT_SECS,
+            )
+        })?;
         let scanned: ScannedReceipt = parse(&body)?;
         let receipt = dibill_receipt::normalize(&scanned.receipt, base).map_err(|issues| {
             CoreError::Server {

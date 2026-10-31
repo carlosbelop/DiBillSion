@@ -139,10 +139,11 @@ fun ExpenseDetailScreen(d: GroupDetail, t: TransactionDto, vm: AppViewModel, onC
                             people.forEach { m ->
                                 val on = m.id in inItem
                                 val last = on && inItem.size == 1
+                                // The last person stays shown as selected; tapping them does nothing.
                                 FilterChip(
                                     selected = on,
-                                    enabled = byParts && !last && (on || m.active),
-                                    onClick = { vm.setItemMember(id, index, m.id, !on) },
+                                    enabled = byParts && (on || m.active),
+                                    onClick = { if (!last) vm.setItemMember(id, index, m.id, !on) },
                                     leadingIcon = { Avatar(initials(m.displayName), m.id, size = 20.dp) },
                                     label = { Text(m.displayName) },
                                 )

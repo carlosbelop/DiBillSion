@@ -104,16 +104,17 @@ impl Core {
         group_id: String,
     ) -> Result<SyncSummary, CoreError> {
         let group = group_id_checked(self, &group_id)?;
-        let token = self.ensure_registered(&*transport)?;
-        send(
-            &*transport,
-            "PUT",
-            format!("/v1/groups/{}", group.0),
-            Some(&token),
-            None,
-        )?;
-        self.store().mark_shared(group)?;
-        self.sync_group(&*transport, &token, group)
+        self.authed(&*transport, |token| {
+            send(
+                &*transport,
+                "PUT",
+                format!("/v1/groups/{}", group.0),
+                Some(token),
+                None,
+            )?;
+            self.store().mark_shared(group)?;
+            self.sync_group(&*transport, token, group)
+        })
     }
 
     /// Whether a group is shared through the server.
@@ -134,14 +135,15 @@ impl Core {
         group_id: String,
     ) -> Result<String, CoreError> {
         let group = parse_group(&group_id)?;
-        let token = self.ensure_registered(&*transport)?;
-        let body = send(
-            &*transport,
-            "POST",
-            format!("/v1/groups/{}/invites", group.0),
-            Some(&token),
-            None,
-        )?;
+        let body = self.authed(&*transport, |token| {
+            send(
+                &*transport,
+                "POST",
+                format!("/v1/groups/{}/invites", group.0),
+                Some(token),
+                None,
+            )
+        })?;
         Ok(parse::<Invite>(&body)?.code)
     }
 
@@ -155,14 +157,15 @@ impl Core {
         group_id: String,
     ) -> Result<(), CoreError> {
         let group = parse_group(&group_id)?;
-        let token = self.ensure_registered(&*transport)?;
-        send(
-            &*transport,
-            "DELETE",
-            format!("/v1/groups/{}/invites", group.0),
-            Some(&token),
-            None,
-        )?;
+        self.authed(&*transport, |token| {
+            send(
+                &*transport,
+                "DELETE",
+                format!("/v1/groups/{}/invites", group.0),
+                Some(token),
+                None,
+            )
+        })?;
         Ok(())
     }
 
@@ -185,18 +188,19 @@ impl Core {
                 reason: "an invite code is letters, digits, '-' and '_'".into(),
             });
         }
-        let token = self.ensure_registered(&*transport)?;
-        let body = send(
-            &*transport,
-            "POST",
-            format!("/v1/invites/{code}/join"),
-            Some(&token),
-            None,
-        )?;
-        let group = GroupId(parse::<Joined>(&body)?.group_id);
-        self.store().mark_shared(group)?;
-        self.sync_group(&*transport, &token, group)?;
-        Ok(group.0.to_string())
+        self.authed(&*transport, |token| {
+            let body = send(
+                &*transport,
+                "POST",
+                format!("/v1/invites/{code}/join"),
+                Some(token),
+                None,
+            )?;
+            let group = GroupId(parse::<Joined>(&body)?.group_id);
+            self.store().mark_shared(group)?;
+            self.sync_group(&*transport, token, group)?;
+            Ok(group.0.to_string())
+        })
     }
 
     /// Pushes local changes and pulls remote ones for every shared group.
@@ -208,14 +212,15 @@ impl Core {
         if groups.is_empty() {
             return Ok(SyncSummary::default());
         }
-        let token = self.ensure_registered(&*transport)?;
-        let mut total = SyncSummary::default();
-        for (group, _) in groups {
-            let s = self.sync_group(&*transport, &token, group)?;
-            total.pushed += s.pushed;
-            total.pulled += s.pulled;
-        }
-        Ok(total)
+        self.authed(&*transport, |token| {
+            let mut total = SyncSummary::default();
+            for (group, _) in &groups {
+                let s = self.sync_group(&*transport, token, *group)?;
+                total.pushed += s.pushed;
+                total.pulled += s.pulled;
+            }
+            Ok(total)
+        })
     }
 }
 
@@ -272,6 +277,24 @@ pub(crate) fn send_timed(
 
 impl Core {
     /// This device's token, registering it on first use.
+    /// Runs `call` with this device's token. When the server doesn't know the
+    /// token (its database was replaced or restored), registers again and
+    /// retries once: the rejected call changed nothing on the server.
+    pub(crate) fn authed<T>(
+        &self,
+        transport: &dyn HttpTransport,
+        call: impl Fn(&str) -> Result<T, CoreError>,
+    ) -> Result<T, CoreError> {
+        let token = self.ensure_registered(transport)?;
+        match call(&token) {
+            Err(CoreError::Server { code, .. }) if code == "unauthorized" => {
+                self.store().clear_sync_token()?;
+                call(&self.ensure_registered(transport)?)
+            }
+            other => other,
+        }
+    }
+
     pub(crate) fn ensure_registered(
         &self,
         transport: &dyn HttpTransport,
@@ -628,6 +651,26 @@ mod tests {
         assert_eq!(a.transactions(group.clone()).unwrap().len(), 1);
         // Nothing left to do.
         assert_eq!(a.sync(server.clone()).unwrap(), SyncSummary::default());
+    }
+
+    #[test]
+    fn a_forgotten_token_registers_again() {
+        let server: Arc<FakeServer> = Arc::default();
+        let a = Core::in_memory().unwrap();
+        let group = a
+            .create_group("Flat".into(), None, GroupKindDto::Home, "EUR".into())
+            .unwrap();
+        a.share_group(server.clone(), group.clone()).unwrap();
+        // The server's database was replaced: it no longer knows any token.
+        server.state.lock().unwrap().tokens.clear();
+        a.add_member(group.clone(), "Dani".into()).unwrap();
+        assert_eq!(a.sync(server.clone()).unwrap().pushed, 2);
+        assert_eq!(
+            server.state.lock().unwrap().tokens.len(),
+            1,
+            "registered again"
+        );
+        assert!(a.invite_code(server.clone(), group).is_ok());
     }
 
     #[test]
