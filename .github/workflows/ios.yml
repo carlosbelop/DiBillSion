@@ -33,6 +33,11 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 
+# Explicit bash gets `-eo pipefail`, so `| xcbeautify` can't hide a failure.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   ios:
     name: iOS (XCFramework, SwiftUI build, unit tests)

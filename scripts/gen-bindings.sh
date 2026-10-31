@@ -17,4 +17,4 @@ esac
 rm -rf "$out"
 cargo run -q -p dibill-core --features bindgen --bin uniffi-bindgen -- \
   generate --library "$lib" --language "$language" --out-dir "$out" --no-format
-echo "${language^} bindings in $out"
+echo "Bindings ($language) in $out"
