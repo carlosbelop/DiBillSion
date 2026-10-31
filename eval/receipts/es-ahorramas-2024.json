@@ -1,0 +1,92 @@
+{
+  "merchant": "AHORRAMAS",
+  "date": "2024-02-12",
+  "currency": "EUR",
+  "items": [
+    {
+      "description": "SOLUCIÓN ÚNICA SOLUPHARM 60",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "2.85"
+    },
+    {
+      "description": "PUERRO BANDEJA",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "2.54"
+    },
+    {
+      "description": "CHÍA VIDASANIA SOS 200G",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1.78"
+    },
+    {
+      "description": "BARRITAS CEREALES ALIP.129G",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1.29"
+    },
+    {
+      "description": "BARRITAS CEREALES ALIPENDE",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1.29"
+    },
+    {
+      "description": "PECHUGA PAVO ALIPENDE 200G",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "3.37"
+    },
+    {
+      "description": "BOLSA PLÁSTICO RECICLADO",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "0.15"
+    },
+    {
+      "description": "NATA MONTADA SPRAY CHANTILL",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1.50"
+    },
+    {
+      "description": "ZANAHORIA 1KG",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1.15"
+    },
+    {
+      "description": "CEREAL COPOS ALIPENDE 500G",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1.80"
+    },
+    {
+      "description": "TORTITA DE ARROZ ALIPENDE 1",
+      "quantity": "2",
+      "unit_price": "1.25",
+      "total": "2.50"
+    },
+    {
+      "description": "PAN MOLDE ALIPENDE 820G BLA",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1.25"
+    },
+    {
+      "description": "BARRA HORNO SUPER 250G",
+      "quantity": "2",
+      "unit_price": "0.48",
+      "total": "0.96"
+    },
+    {
+      "description": "PROMOCION",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "-0.08"
+    }
+  ],
+  "total": "22.35"
+}

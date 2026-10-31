@@ -1,0 +1,98 @@
+{
+  "merchant": null,
+  "date": "2022-03-22",
+  "currency": "EUR",
+  "items": [
+    {
+      "description": "AGUA MINERAL",
+      "quantity": "2",
+      "unit_price": "0.63",
+      "total": "1.26"
+    },
+    {
+      "description": "CEREAL TRIGO ENTERO",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "2.85"
+    },
+    {
+      "description": "C. COLOMBIA ALU",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "3.45"
+    },
+    {
+      "description": "C. DOB. ESPRESSO ALU",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "3.40"
+    },
+    {
+      "description": "CAP. RISTRETTO ALUM",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "3.40"
+    },
+    {
+      "description": "B.BASURA EXT.C.FACIL",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1.70"
+    },
+    {
+      "description": "CAP. EXTRAFORTE ALUM",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "3.40"
+    },
+    {
+      "description": "CHOCOLATE PURO",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "2.80"
+    },
+    {
+      "description": "CHOCO-LECHE ALMENDRA",
+      "quantity": "2",
+      "unit_price": "3.00",
+      "total": "6.00"
+    },
+    {
+      "description": "CHOCOLATE ALMENDRA",
+      "quantity": "2",
+      "unit_price": "3.00",
+      "total": "6.00"
+    },
+    {
+      "description": "PECHUGA PAVO HORNO",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1.55"
+    },
+    {
+      "description": "MIGAS DE COLIFLOR",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1.50"
+    },
+    {
+      "description": "PISTO DE VERDURAS",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "1.80"
+    },
+    {
+      "description": "MENESTRA",
+      "quantity": "2",
+      "unit_price": "1.15",
+      "total": "2.30"
+    },
+    {
+      "description": "DISCOS ACTIVOS",
+      "quantity": "1",
+      "unit_price": null,
+      "total": "2.75"
+    }
+  ],
+  "total": "44.16"
+}

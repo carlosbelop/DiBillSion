@@ -12,3 +12,4 @@ Never edit an accepted ADR's decision. Write a new one that supersedes it.
 | [0005](0005-store-op-log.md) | Op log in the on-device store | accepted |
 | [0006](0006-sync-api.md) | Sync API and wire format | accepted |
 | [0007](0007-sync-client-transport.md) | Sync client with platform HTTP | accepted |
+| [0008](0008-receipt-scanning.md) | Receipt scanning through any OpenAI-compatible vision model | accepted |

@@ -3,7 +3,7 @@
 > Living document. Every session reads it first and updates it in the same PR as the work it describes.
 > Milestones are defined in [PLAN.md §4](PLAN.md).
 
-Last updated: 2026-10-31 (session 4)
+Last updated: 2026-10-31 (session 5)
 
 ## Where we are
 
@@ -20,7 +20,7 @@ Last updated: 2026-10-31 (session 4)
 1. ~~**P0 public-repo prep**~~ done (current files cleaned, history kept; issue/PR texts edited). The owner switches the repo to public.
 2. **M4 iOS → TestFlight**: app and CI done (#72, #74); TestFlight uploads work (#78), testers pending (see *Needs the owner*). Then simulator screenshots in CI and parity items.
 3. **B1 Pi** (weekend, when the owner turns the Pi on): 64-bit OS + Docker, `deploy/deploy.sh`, Tailscale Funnel URL → release `SYNC_URL`; then B2 Android beta build.
-4. M7a receipt evaluation.
+4. **M7 receipts** (started 2026-10-31 while the Pi waits): eval set + harness (#82), then server endpoint + core, Android and iOS scan screens. Model choice after the eval run (owner: key).
 
 ## Backlog (in order)
 
@@ -70,11 +70,11 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 - [ ] Android beta build: release signing with an owner-held key (never in git), `SYNC_URL` = beta server, versioning, distribution (owner: APK sideload or Play internal testing).
 
 ### M7a: VLM receipt evaluation (starts in parallel)
-- [ ] ADR 0008: structured output approach (provider JSON-Schema modes, schema from Rust types, semantic validation and one repair retry in Rust).
-- [ ] Receipt schema (`dibill-receipt`): merchant, date, currency, items (label, qty, unit, line total, discounts), tax, tip, total; JSON Schema generated from the Rust types; validation (items + adjustments = total, to the cent).
-- [ ] Evaluation set: ~100 receipts. CORD v2 test split (CC BY 4.0) plus Spanish receipts from the owner and friends (personal data removed). Ground truth written by us, checked by the owner on a sample. Images stay out of git; ground truth and a download script are versioned.
-- [ ] Rust harness: OpenAI-compatible client (OpenRouter for breadth) + native Gemini; per-model accuracy (total exact, items exact, schema-valid rate), cost per receipt, latency p50/p95; markdown report.
-- [ ] Run candidates (owner: API keys / a few euros of credit) and pick the cheapest model over the bar.
+- [x] ADR 0008: any OpenAI-compatible provider (base URL + model + key), strict JSON Schema output (or `json_object`/prompt fallback), amounts as decimal strings parsed without floats, one repair retry when the items don't add up. ([#82](https://github.com/carlosbelop/DiBillSion/pull/82))
+- [x] `dibill-receipt`: schema (tested against the Rust types), `parse_amount`, `check`, `normalize` (discounts folded into items, never negative, sum preserved: property test), the HTTP client (feature `http`) tested against a fake provider (same PR).
+- [x] Evaluation set started: `eval/receipts/` with 5 receipts from the owner (ES supermarkets, ES/FR restaurants) and our ground truth; photos are in the repo (owner's decision, 2026-10-31). A test checks every ground truth parses and adds up. Grows as the owner adds photos (same PR).
+- [x] `receipt-eval` harness: many models in one run, parse rate, exact totals, exact item lists, recall/precision, label similarity, merchant/date, retries, latency p50/p95, tokens, cost (reported by the provider or from `--model name@in,out` prices), markdown report (same PR).
+- [ ] Run candidates (owner: provider choice and a key) and pick the cheapest model over the bar. More receipts first (aim: 30+).
 
 ### M7b: scanning in the app
 - [ ] Server: `POST /v1/receipts` (downscaled image → model → validated items), provider key only on the server, per-device credits and daily limits, global monthly budget cap.
@@ -111,7 +111,7 @@ The dev password is local-only; never reuse it for a hosted database.
 - **Raspberry Pi** this weekend: say when it's on; 64-bit Raspberry Pi OS, SSH key, Docker, Tailscale.
 - **Beta hosting**: decided 2026-10-30, Raspberry Pi 4B with Tailscale Funnel (an SSD instead of the SD card if possible). A VPS (Hetzner CAX11 ≈€4.5–5/month) stays the fallback.
 - **Domain / name**: autosplit.com is registered (since 2003, renewed to 2027; no website). Free alternatives checked on 2026-10-30: autosplit.app, getautosplit.com, autosplitapp.com, dibillsion.com, dibillsion.app. Using "AutoSplit" would also be a rename (branding), and the name is used by an existing open-source speedrunning tool: worth a trademark check.
-- **VLM API access** (blocks M7a runs, not the harness): keys for OpenRouter and/or Google AI Studio / OpenAI with a few euros of credit; Spanish receipt photos for the evaluation set.
+- **VLM provider + key** (blocks the eval run and scanning in production, not the code): recommended an [OpenRouter](https://openrouter.ai) key with ~5 € credit, so one key runs Gemini, GPT, Claude, Qwen and Mistral models in one eval and the winner can stay on OpenRouter or move to its vendor. More receipt photos for `eval/receipts/` (see its README).
 - **Android beta distribution**: APK sideload (free) or Play internal testing ($25 one-time account); a release signing key kept by you.
 - **App name, `applicationId` and icon** (needed before M8): keeping DiBillSion and the current icon for now (owner, 2026-10-30); tell me when you have the final ones.
 - **UI direction:** the redesign is original (hard rule 1). Point out on the phone what you'd like different and I'll iterate.
