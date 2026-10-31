@@ -11,6 +11,16 @@
         }
       }
     },
+    "%@ each": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ cada uno"
+          }
+        }
+      }
+    },
     "%@ paid back %@": {
       "localizations": {
         "es": {
@@ -37,6 +47,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ te paga"
+          }
+        }
+      }
+    },
+    "%lld items": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld item"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld items"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld artículo"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld artículos"
+                }
+              }
+            }
           }
         }
       }
@@ -1100,6 +1150,16 @@
         }
       }
     },
+    "Split by exact amounts: change it from the editor.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repartido por importes exactos: cámbialo desde el editor."
+          }
+        }
+      }
+    },
     "Split equally": {
       "localizations": {
         "es": {
@@ -1146,6 +1206,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Participa en gastos nuevos"
+          }
+        }
+      }
+    },
+    "Tap people to add or remove them from an item. Everyone in the group sees the change.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca a las personas para añadirlas o quitarlas de un artículo. Todo el grupo ve el cambio."
           }
         }
       }
