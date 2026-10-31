@@ -102,13 +102,14 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlin.math.abs
 
-private enum class Editor { NONE, EXPENSE, READING, RECEIPT }
+private enum class Editor { NONE, DETAIL, EXPENSE, READING, RECEIPT }
 
 private val Tabs = listOf(R.string.tab_expenses, R.string.tab_balances, R.string.tab_people)
 
 @Composable
 fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
     var adding by rememberSaveable { mutableStateOf(false) }
+    var viewing by rememberSaveable { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val inviteText = state.invite?.let { stringResource(R.string.invite_message, it.groupName, it.link, it.code) }
     LaunchedEffect(inviteText) {
@@ -118,10 +119,15 @@ fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
         vm.inviteShown()
     }
     // Editors rise from the bottom and sink back when closed.
+    val viewed = viewing?.let { id -> d.transactions.firstOrNull { it.id == id } }
     val screen = when (state.scan) {
         is ScanState.Reading -> Editor.READING
         is ScanState.Review -> Editor.RECEIPT
-        null -> if (adding) Editor.EXPENSE else Editor.NONE
+        null -> when {
+            adding -> Editor.EXPENSE
+            viewed != null -> Editor.DETAIL
+            else -> Editor.NONE
+        }
     }
     AnimatedContent(
         targetState = screen,
@@ -138,7 +144,8 @@ fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
             Editor.EXPENSE -> AddExpenseScreen(d, vm, onDone = { adding = false })
             Editor.READING -> ReadingReceiptScreen(onCancel = vm::closeScan)
             Editor.RECEIPT -> (state.scan as? ScanState.Review)?.let { ReceiptReviewScreen(d, it.draft, vm) }
-            Editor.NONE -> GroupBody(d, state, vm, onAdd = { adding = true })
+            Editor.DETAIL -> viewed?.let { ExpenseDetailScreen(d, it, vm, onClose = { viewing = null }) }
+            Editor.NONE -> GroupBody(d, state, vm, onAdd = { adding = true }, onOpen = { viewing = it })
         }
     }
     ErrorDialog(state.error, vm::dismissError)
@@ -146,7 +153,7 @@ fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: () -> Unit) {
+private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: () -> Unit, onOpen: (String) -> Unit) {
     val pager = rememberPagerState { Tabs.size }
     val scope = rememberCoroutineScope()
     var addingPerson by rememberSaveable { mutableStateOf(false) }
@@ -270,7 +277,7 @@ private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: (
             HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
                 PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
                     when (page) {
-                        0 -> Transactions(d, vm, onAdd)
+                        0 -> Transactions(d, vm, onAdd, onOpen)
                         1 -> Balances(d, vm, onPickMe = { pickingMe = true })
                         else -> People(d, vm)
                     }
@@ -320,7 +327,7 @@ private fun shownName(d: GroupDetail, id: String, name: String): String =
     if (id == d.meId) stringResource(R.string.me_suffix, name) else name
 
 @Composable
-private fun Transactions(d: GroupDetail, vm: AppViewModel, onAdd: () -> Unit) {
+private fun Transactions(d: GroupDetail, vm: AppViewModel, onAdd: () -> Unit, onOpen: (String) -> Unit) {
     var deleting by remember { mutableStateOf<TransactionDto?>(null) }
     deleting?.let { t ->
         ConfirmDialog(
@@ -348,7 +355,9 @@ private fun Transactions(d: GroupDetail, vm: AppViewModel, onAdd: () -> Unit) {
         byDay.forEach { (day, list) ->
             item(key = "day-$day") { SectionHeader(dayLabel(day), Modifier.animateItem()) }
             items(list, key = { it.id ?: "" }) { t ->
-                TransactionRow(d, t, vm, Modifier.animateItem(), onDelete = { deleting = t })
+                // Expenses and incomes open with their items; transfers have nothing more to show.
+                val open = Modifier.clickable { t.id?.let(onOpen) }.takeIf { t.kind != TransactionKindDto.TRANSFER }
+                TransactionRow(d, t, vm, Modifier.animateItem().then(open ?: Modifier), onDelete = { deleting = t })
             }
         }
     }
