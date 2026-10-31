@@ -54,8 +54,7 @@ On WSL2, keep the repo inside the Linux filesystem (`~/...`), not under `/mnt/c`
 ## Rules
 
 1. **Money is integer minor units** (`i64` cents). Floats are banned by clippy.
-2. **Clean room:** nothing from third-party apps (code, strings, icons, assets, APIs) goes into this repo.
-   Local research lives in `_study/`, which is git-ignored and checked by CI.
+2. **Original work only:** nothing from other apps (code, strings, icons, assets, APIs) goes into this repo.
 3. **No secrets in git:** signing keys and API keys go in GitHub Secrets / local `.env`.
 
 ## License

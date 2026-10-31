@@ -1,8 +1,6 @@
 # Functional specification
 
-> Written in our own words from studying how group-expense apps behave (milestone M1).
-> This is the only study output allowed in the repo: no code, strings, assets or API details
-> from third-party apps. It describes **DiBillSion**, including where we deliberately differ.
+> What **DiBillSion** does: features, flows, data model and calculation rules (milestone M1).
 >
 > Status: **v2, approved by the owner on 2026-10-25** (closes M1). Items marked **(open)** are
 > product decisions still to make. Changes from now on go through a PR that bumps the version.
@@ -41,8 +39,7 @@
   then the user claims an existing placeholder member or joins as a new one. The group owner
   can turn the link off or regenerate it.
 - **Attachments (M6).** Photos or PDFs on a transaction (camera or gallery).
-- **Export (M6).** CSV of all transactions, and a PDF summary with balances. (Our addition:
-  the studied app offers none.)
+- **Export (M6).** CSV of all transactions, and a PDF summary with balances.
 - **Accounts.** Optional. Without an account the user keeps groups on one device and can
   still join shared groups. Signing in (email link, Sign in with Apple, Google) syncs groups
   across devices. Account and data deletion inside the app.
@@ -52,8 +49,8 @@
 Every amount, share and balance is a whole number of the currency's smallest unit. Shares of an item
 always add up to the item, balances always add up to exactly zero, and once everyone pays the
 suggested reimbursements every balance is exactly zero. A split never leaves a stray cent that nobody
-owes, and a list never shows shares that add up to more or less than the total. (The studied app keeps
-fractional shares and rounds each balance on its own, which leaves such cents behind.)
+owes, and a list never shows shares that add up to more or less than the total. (Keeping fractional
+shares and rounding each balance on its own would leave such cents behind.)
 
 ### 1.3 Differentiator (M7)
 - **Receipt scanning.** Take a photo of a receipt → the server's VLM returns line items
@@ -83,7 +80,7 @@ fractional shares and rounds each balance on its own, which leaves such cents be
 
 ## 3. Data model
 
-Base: [PLAN §3.4](PLAN.md). Refinements from the study:
+Base: [PLAN §3.4](PLAN.md), refined:
 
 ```
 Group(id, name, emoji?, kind, base_currency, created_at, archived_at?, invite_token?, invite_enabled)
@@ -152,7 +149,7 @@ language, locale or member names. Ties are broken by member id.
 - **Deactivated member:** keeps their balance; can still settle; cannot be picked for new
   splits.
 - **Concurrent offline edits (M5):** last writer wins per field (Lamport clock), deletes are
-  tombstones. (Not observable on one device; covered by the sync design in M5.)
+  tombstones. (Covered by the sync design in M5.)
 - **Destructive or money-moving actions** (delete a transaction or person, mark a reimbursement as
   paid) ask for confirmation first.
 - **Removing a member** keeps their past shares and their balance as they are; nothing is spread over

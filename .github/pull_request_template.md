@@ -11,7 +11,7 @@
 
 ## Checklist
 
-- [ ] No code, strings, icons or assets copied from third-party apps (clean-room rule)
+- [ ] No code, strings, icons or assets copied from other apps (original work only)
 - [ ] No secrets, keystores or API keys committed
 - [ ] Money handled as integer minor units (no floats)
 - [ ] Docs/ADR updated if behavior or architecture changed

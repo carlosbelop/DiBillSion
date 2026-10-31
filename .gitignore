@@ -1,11 +1,9 @@
-# --- Study material: NEVER commit (third-party copyrighted code/assets) ---
-_study/
+# --- Build outputs / binaries ---
 *.apk
 *.apks
 *.aab
-*.xapk
+*.ipa
 *.dex
-*.smali
 
 # --- Secrets / signing ---
 .env

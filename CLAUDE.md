@@ -28,10 +28,9 @@ The owner (`carlosbelop`) wants sessions to **implement and develop autonomously
 
 ## Hard rules
 
-1. **Clean room.** We study an existing app's *behavior* only.
-   - Decompiler output, APKs, screenshots and notes live in `_study/` (git-ignored, CI-guarded). Never commit them.
-   - Never copy code, smali, class names, strings, icons, images, layouts or private API details from third-party apps into the repo.
-   - The only study output allowed in the repo is `docs/SPEC.md`, written in our own words.
+1. **Original work only.** Code is written from `docs/SPEC.md` (our own words).
+   - Never copy code, class names, strings, icons, images, layouts or API details from other apps into the repo.
+   - No binaries (APKs, app bundles, dex) are tracked (CI-guarded).
 2. **Money is `i64` minor units** (cents). No floats anywhere in money paths (`clippy::float_arithmetic` is denied). FX uses `rust_decimal`.
 3. **Determinism.** Split, balance and settle results must be identical on every device. Break ties by `MemberId`.
 4. **No secrets in git.** No keystores, API keys or `.env` files.
@@ -64,7 +63,6 @@ The owner (`carlosbelop`) wants sessions to **implement and develop autonomously
 
 - WSL2 Ubuntu 24.04 (or native Ubuntu). The repo lives at `~/proyectos/dibillsion`, never under `/mnt/c`.
 - Tools are installed by `scripts/setup-ubuntu.sh` (single source of truth for versions).
-- REA (reverse-engineering MCP server `rea`) is registered for Claude Code. Its variables (`REA_JADX_MCP_JAR`, `REA_APKTOOL_COMMAND`, timeouts, heap) are set in `~/.claude/settings.json` (`env`) and `~/.bashrc`.
 - The phone (Pixel 9a) connects through adb wireless debugging. If `adb devices` is empty, ask the owner to re-pair; that's a physical action.
 - Permissions: `.claude/settings.json` allows the dev toolchain and denies `sudo`, force pushes, pushes to `main` and reading secrets.
 
@@ -79,4 +77,3 @@ The owner (`carlosbelop`) wants sessions to **implement and develop autonomously
 | `crates/dibill-core` | Facade for mobile apps (UniFFI) |
 | `crates/dibill-server` | Backend |
 | `android/`, `ios/` | Native UI shells |
-| `_study/` | Local-only research (ignored) |

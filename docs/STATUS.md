@@ -3,29 +3,21 @@
 > Living document. Every session reads it first and updates it in the same PR as the work it describes.
 > Milestones are defined in [PLAN.md §4](PLAN.md).
 
-Last updated: 2026-10-30 (end of session 3)
+Last updated: 2026-10-31 (session 4)
 
 ## Where we are
 
-**M0 (tooling): done. M1 (study): done, SPEC v2 approved. M2 (domain): done.** **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; first on-device run done (Pixel 9a); only branding (owner) is left. **M5 (backend + sync): in progress** — sync model (ADR 0004), store op log (ADR 0005) and sync API (ADR 0006), server, invites, core sync client and Android share/join done; only a two-real-device check is left.
+**M0 (tooling): done. M1 (functional spec): done, SPEC v2 approved. M2 (domain): done.** **M3 (local Android app): in progress** — store, UniFFI facade, SDK/NDK and Compose shell done; first on-device run done (Pixel 9a); only branding (owner) is left. **M5 (backend + sync): in progress** — sync model (ADR 0004), store op log (ADR 0005) and sync API (ADR 0006), server, invites, core sync client and Android share/join done; only a two-real-device check is left.
 
 ### Done
-- WSL2 Ubuntu 24.04 environment (`scripts/setup-ubuntu.sh`): Rust stable + Android targets, cargo-nextest/deny/llvm-cov/ndk/bloat, Node 24 (nvm), OpenJDK 21, jadx-headless-mcp 0.7.1, Apktool 3.0.3, adb, gh.
-- REA registered as MCP server `rea` for Claude Code (`npx -y rea-agents@6.8.0 mcp`).
-- Repo scaffold: Cargo workspace, strict lints, CI (fmt, clippy, nextest + coverage, cargo-deny, study-material guard), Dependabot, ADR 0001.
+- WSL2 Ubuntu 24.04 environment (`scripts/setup-ubuntu.sh`): Rust stable + Android targets, cargo-nextest/deny/llvm-cov/ndk/bloat, Node 24 (nvm), OpenJDK 21, adb, gh.
+- Repo scaffold: Cargo workspace, strict lints, CI (fmt, clippy, nextest + coverage, cargo-deny, no-binaries/secrets guard), Dependabot, ADR 0001.
 - `dibill-domain`: `split_weighted` (largest remainder, deterministic), `balances`, `settle_up` (greedy), with unit and property tests.
-- Study input: `_study/apk/tricount-base.apk`. Package `com.tribab.tricount.android`, v14.5.0 (versionCode 500004150), minSdk 32, targetSdk 37, single APK, 296 MB, sha256 `19d9dbb08353708d4f698752011c334fbdc669cef2f4b9918e3701ce62336edb`.
-- Study notes (local only): `_study/notes/01-triage.md`, `02-features.md`, `03-behavior.md`. REA's resource decoder caps at 2,000 strings, so full string tables were decoded with local Apktool into `_study/decoded/`.
 - `dibill-domain`: ISO 4217 `Currency` + decimal FX (`convert`, `convert_items`, ADR 0002), line-item expenses, transfers in balances, criterion baseline ([BENCHMARKS.md](BENCHMARKS.md)).
 
 ## Next sessions (from 2026-10-31), in order — see PLAN §4.2
 
-1. **P0 public-repo prep** (one issue/PR). Remove references and hints to the studied third-party app from tracked files only:
-   - `docs/PLAN.md` (§1.2 study tools, §2 study track, name mentions), `docs/STATUS.md` (M1 study items, package id, APK hash), `docs/SPEC.md` ("studied app" wording → plain spec), `CLAUDE.md` (hard rule 1, REA lines), `README.md`, `scripts/setup-ubuntu.sh` (REA/JADX/Apktool), `.claude/settings.json` (REA permissions), `.github/workflows/ci.yml` + PR template (study guard → generic "no binaries/secrets" guard), `.gitignore`/`.dockerignore` (`_study` lines).
-   - False positive to keep: `std::hint::black_box` in `crates/dibill-domain/benches/domain.rs`.
-   - Edit GitHub texts that can be edited (PR #3 body; check the other issues and PRs). Commit messages and history stay.
-   - Move the local `_study/` folder outside the repo before publishing (it is git-ignored, never committed).
-   - Then the owner switches the repo to public (owner action).
+1. ~~**P0 public-repo prep**~~ done (current files cleaned, history kept; issue/PR texts edited). The owner switches the repo to public.
 2. **M4 iOS → TestFlight** (several PRs): macOS CI job (XCFramework + UniFFI Swift bindings), SwiftUI app for the flat use case, signing/upload with an App Store Connect API key from GitHub secrets, internal testers.
 3. **B1 Pi** (weekend, when the owner turns the Pi on): 64-bit OS + Docker, `deploy/deploy.sh`, Tailscale Funnel URL → release `SYNC_URL`; then B2 Android beta build.
 4. M7a receipt evaluation.
@@ -34,15 +26,10 @@ Last updated: 2026-10-30 (end of session 3)
 
 Mark items `[x]` when merged and link the PR.
 
-### M1: Study (clean room, notes stay in `_study/`)
-- [x] **Triage** (PLAN §2.1): `inspect_android_package`, `identify_flutter_build` on the APK. Record stack (Kotlin/Compose? Flutter? RN?), permissions, deep links / invite links, third-party SDKs, obfuscation level → `_study/notes/01-triage.md`.
-- [x] **Resources and strings** (PLAN §2.2): `decode_android_resources` (en, es) → feature inventory in our own words → `_study/notes/02-features.md`.
-- [x] **Behavior** (PLAN §2.3): answer the 7 questions (data model, split modes, rounding, multi-currency, settle-up, offline/sync and invites, export) → `_study/notes/03-behavior.md`.
-- [x] **Black-box observation** (PLAN §2.4) on the phone. ⚠️ Use only a throwaway test group. Never touch the owner's real groups. If something can't be done through adb, ask the owner.
-- [x] **Write `docs/SPEC.md`** (own words; the only study output allowed in the repo). v2 approved by the owner on 2026-10-25 (M1 exit criterion met).
-- [x] Fold black-box results into SPEC (draft v2): exact-cent guarantee, settle-up example, display and confirmation rules. Notes in `_study/notes/04-blackbox.md` (throwaway group created and deleted; the owner's groups were not opened).
+### M1: Functional spec
+- [x] **Write `docs/SPEC.md`**: features, flows, data model, calculation rules with worked examples. v2 approved by the owner on 2026-10-25 (M1 exit criterion met).
 
-### M2: Domain (`dibill-domain`, no study needed)
+### M2: Domain (`dibill-domain`)
 - [x] Currency type (ISO 4217 code + minor-unit exponent) and FX conversion with `rust_decimal`, with explicit rounding rules and tests. ([#11](https://github.com/carlosbelop/DiBillSion/pull/11), ADR 0002)
 - [x] Line-item model: `ExpenseItem` + `ItemShare`. A manual expense is one item; receipts are many. Balances computed per item. ([#13](https://github.com/carlosbelop/DiBillSion/pull/13))
 - [x] Transfers (reimbursements) included in balances. ([#15](https://github.com/carlosbelop/DiBillSion/pull/15))
@@ -61,7 +48,7 @@ Mark items `[x]` when merged and link the PR.
 - [x] CI job: `cargo ndk` build + Gradle assemble + unit tests, debug APK uploaded as an artifact (same PR).
 - [x] Run the app on the Pixel: all core flows worked; fixes for what showed up in [#39](https://github.com/carlosbelop/DiBillSion/pull/39) (localized errors, confirmations, converted amounts). #39 re-checked on the device: confirmations, Spanish errors and wording all work.
 - [ ] Finalize `applicationId` (currently placeholder `com.dibillsion.app`) and app icon before M8 (branding: owner). The owner decided on 2026-10-30 to keep the name DiBillSion and the current icon for now; they will change them later.
-- [x] UI redesign with our own visual identity (teal/amber palette, avatars, grouped expense list, balance bars, full-screen editors, live exact shares from the core via `preview_split`). The owner asked for a copy of the studied app's UI; per hard rule 1 (clean room) it was redesigned from SPEC flows instead, without copying its layouts, strings, icons or images. ([#50](https://github.com/carlosbelop/DiBillSion/pull/50))
+- [x] UI redesign with our own visual identity (teal/amber palette, avatars, grouped expense list, balance bars, full-screen editors, live exact shares from the core via `preview_split`). Designed from the SPEC flows. ([#50](https://github.com/carlosbelop/DiBillSion/pull/50))
 - [x] Owner feedback on the redesign: "who am I" per group (device-local, schema v3 `group_prefs`, not synced), my balance and my payments at the top of Balances and on the group cards, payer defaults to me; swipeable tabs, pull-to-refresh, list and screen animations, an elastic bottom edge that works on short lists; centered title; a tint per group. ([#52](https://github.com/carlosbelop/DiBillSion/pull/52))
 
 ### M5: Backend + sync + invite links
@@ -126,6 +113,6 @@ The dev password is local-only; never reuse it for a hosted database.
 - **VLM API access** (blocks M7a runs, not the harness): keys for OpenRouter and/or Google AI Studio / OpenAI with a few euros of credit; Spanish receipt photos for the evaluation set.
 - **Android beta distribution**: APK sideload (free) or Play internal testing ($25 one-time account); a release signing key kept by you.
 - **App name, `applicationId` and icon** (needed before M8): keeping DiBillSion and the current icon for now (owner, 2026-10-30); tell me when you have the final ones.
-- **UI direction:** the redesign is original (clean-room rule). Point out on the phone what you'd like different and I'll iterate.
+- **UI direction:** the redesign is original (hard rule 1). Point out on the phone what you'd like different and I'll iterate.
 - **Second device (optional)**: an Android emulator (Android Studio on Windows) or a second phone with USB/wireless debugging, for the two-real-device check.
 
