@@ -1,6 +1,6 @@
 [package]
 name = "dibill-server"
-description = "Backend: device auth, group sync relay, invite links (axum + PostgreSQL, ADR 0006)."
+description = "Backend: device auth, group sync relay, invite links, receipt scanning (axum + PostgreSQL, ADR 0006, 0008)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,7 +11,9 @@ publish.workspace = true
 axum = "0.8"
 base64 = "0.22"
 deadpool-postgres = "0.14"
+dibill-domain.workspace = true
 dibill-proto.workspace = true
+dibill-receipt = { workspace = true, features = ["http"] }
 getrandom = "0.3"
 serde.workspace = true
 serde_json.workspace = true
@@ -25,7 +27,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { workspace = true, features = ["serde"] }
 
 [dev-dependencies]
-dibill-domain.workspace = true
 dibill-store.workspace = true
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }

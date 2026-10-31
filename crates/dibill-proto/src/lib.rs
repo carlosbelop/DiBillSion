@@ -2,6 +2,7 @@
 //! server. JSON over HTTPS under `/v1`. The server only checks op envelopes
 //! ([`WireOp::check`]); values stay opaque JSON strings decoded by the store.
 
+pub use dibill_receipt::{ModelItem, ModelReceipt};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -15,6 +16,8 @@ pub const MAX_PULL_OPS: u32 = 1000;
 pub const MAX_VALUE_BYTES: usize = 64 * 1024;
 /// Largest request body, in bytes.
 pub const MAX_BODY_BYTES: usize = 1024 * 1024;
+/// Largest receipt image, in bytes before base64. The apps send ~1600 px JPEGs (~300 KB).
+pub const MAX_RECEIPT_BYTES: usize = 4 * 1024 * 1024;
 
 /// What kind of entity an op changes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -149,6 +152,24 @@ pub struct Joined {
     pub group_id: Uuid,
 }
 
+/// `POST /v1/receipts/scan` (ADR 0008).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScanReceipt {
+    /// Standard base64 of the image.
+    pub image_base64: String,
+    /// `image/jpeg`, `image/png` or `image/webp`.
+    pub mime: String,
+    /// ISO 4217 code to read amounts in when the receipt names no currency (the group's).
+    pub currency: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScannedReceipt {
+    /// The model's answer after the repair retry; it may still not add up.
+    pub receipt: ModelReceipt,
+    pub scans_left_today: u32,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
@@ -159,6 +180,14 @@ pub enum ErrorCode {
     TooLarge,
     /// Something failed on the server; retrying later may work.
     Internal,
+    /// Receipt scanning isn't configured on this server.
+    ReceiptsDisabled,
+    /// The device's daily scans, or the server's monthly budget, are used up.
+    LimitReached,
+    /// The model couldn't read a receipt in the image.
+    Unreadable,
+    /// The model provider failed or timed out; retrying later may work.
+    ProviderFailed,
 }
 
 /// Body of every error response.

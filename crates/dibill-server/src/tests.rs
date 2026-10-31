@@ -12,7 +12,9 @@ use tokio_postgres::{Client, NoTls};
 use tower::ServiceExt;
 use uuid::Uuid;
 
-use crate::{Pool, app, migrate, pool};
+use crate::{Pool, Receipts, app, migrate, pool};
+
+mod receipts;
 
 struct TestDb {
     app: Router,
@@ -23,6 +25,10 @@ struct TestDb {
 
 impl TestDb {
     async fn new() -> Option<Self> {
+        Self::with(Receipts::disabled()).await
+    }
+
+    async fn with(receipts: Receipts) -> Option<Self> {
         let Ok(url) = std::env::var("DATABASE_URL") else {
             assert!(
                 std::env::var_os("DIBILL_REQUIRE_DB").is_none(),
@@ -45,7 +51,7 @@ impl TestDb {
         // Migrating twice is a no-op.
         migrate(&pool).await.unwrap();
         Some(Self {
-            app: app(pool.clone()),
+            app: app(pool.clone(), receipts),
             pool,
             admin,
             name,
