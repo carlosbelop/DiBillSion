@@ -26,11 +26,16 @@ pub struct ModelItem {
 }
 
 /// JSON Schema for [`ModelReceipt`], in the subset strict structured-output modes accept
-/// (every property required, nullable via a type union, no extra properties).
+/// (every property required, nullable via `anyOf`, no extra properties).
 #[must_use]
 pub fn json_schema() -> Value {
-    let nullable =
-        |description: &str| json!({ "type": ["string", "null"], "description": description });
+    // `anyOf` rather than a type union: both providers' structured-output modes accept it.
+    let nullable = |description: &str| {
+        json!({
+            "anyOf": [{ "type": "string" }, { "type": "null" }],
+            "description": description
+        })
+    };
     json!({
         "type": "object",
         "additionalProperties": false,
