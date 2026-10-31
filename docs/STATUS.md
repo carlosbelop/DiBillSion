@@ -84,7 +84,8 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 - [x] XCFramework + Swift bindings (`scripts/build-xcframework.sh`), SwiftUI app for the flat use case (XcodeGen, iOS 17+): groups, people, add expense with an equal split and live exact shares, balances with "you owe / you are owed" and settle, invite (share sheet) and join (link, code or `dibillsion://join/<code>`), who am I, pull-to-refresh and background sync over `URLSession`, English + Spanish. macOS CI workflow (`ios.yml`): build + unit tests on the simulator; while the repo is private it only runs with the `macos` PR label or manual dispatch. ([#72](https://github.com/carlosbelop/DiBillSion/pull/72))
 - [ ] Simulator screenshots as CI artifacts; remaining parity with Android (edit expenses, income, unequal splits, foreign-currency polish).
 - [x] Signing + TestFlight upload from CI (`testflight.yml`, automatic signing with the App Store Connect API key, internal testing only; unsigned device archive on PRs). ([#74](https://github.com/carlosbelop/DiBillSion/pull/74))
-- [ ] First TestFlight build on the flatmates' iPhones (owner: secrets, app record, testers; see [ios/README.md](../ios/README.md#testflight)).
+- [x] First TestFlight upload (2026-10-31, build 13; no sync server yet). Signing: each run makes a throwaway Apple Distribution certificate + App Store profile through the API (`scripts/asc.py`), signs manually, uploads, then revokes/deletes them; Xcode 26 runners (`macos-26`), required by App Store Connect. ([#78](https://github.com/carlosbelop/DiBillSion/pull/78))
+- [ ] Flatmates installed it from TestFlight (owner: add them as internal testers).
 
 ### Later
 M6 polish · M8 store release. See PLAN §4.
@@ -103,11 +104,11 @@ The dev password is local-only; never reuse it for a hosted database.
 ## Known issues and tech debt
 - Remote Control (and mobile push) is disabled by the owner's organization policy, so escalations go in the session's final message and in this file.
 - WSL appends the Windows `PATH`, which includes Windows Node. Always make sure nvm's Node comes first (`source ~/.nvm/nvm.sh`).
-- `main` isn't protected by GitHub (free plan, private repo). The PR workflow is self-enforced, and `.claude/settings.json` denies direct pushes to `main`.
+- Since the repo is public (2026-10-31) the `Protect main` ruleset is enforced: PR only, squash only, required checks (Rust, Dependencies, No binaries / secrets), verified signatures, linear history.
 
 ## Needs the owner (open requests)
-- **Apple Developer Program → TestFlight** (enrolled 2026-10-31, waiting for approval). Once approved, the five steps in [ios/README.md § TestFlight](../ios/README.md#testflight): Team ID secret, App ID `com.dibillsion.app`, app record, API key with **Admin** access (App Manager can't create the signing certificate from CI) as secrets `ASC_KEY_ID`/`ASC_ISSUER_ID`/`ASC_KEY_P8`, and the flatmates as internal testers (adding them yourself in App Store Connect keeps their emails out of this soon-public repo). Then tell me and I run the TestFlight workflow.
-- **Make the repo public** after the P0 cleanup PR is merged (Settings → General → Danger zone → Change visibility).
+- **SSH signing key on GitHub** (blocks every merge since the repo went public): the `Protect main` ruleset requires verified signatures, and the commit-signing key `~/.ssh/id_ed25519_github_wsl.pub` isn't registered as a *signing* key. GitHub → Settings → SSH and GPG keys → New SSH key → Key type **Signing Key**, paste that public key. Or `gh auth refresh -h github.com -s admin:ssh_signing_key` and I add it.
+- **TestFlight testers**: add the flatmates as internal testers ([ios/README.md § TestFlight](../ios/README.md#testflight), step 5). Apple setup and secrets are done; the first build is uploaded.
 - **Raspberry Pi** this weekend: say when it's on; 64-bit Raspberry Pi OS, SSH key, Docker, Tailscale.
 - **Beta hosting**: decided 2026-10-30, Raspberry Pi 4B with Tailscale Funnel (an SSD instead of the SD card if possible). A VPS (Hetzner CAX11 ≈€4.5–5/month) stays the fallback.
 - **Domain / name**: autosplit.com is registered (since 2003, renewed to 2027; no website). Free alternatives checked on 2026-10-30: autosplit.app, getautosplit.com, autosplitapp.com, dibillsion.com, dibillsion.app. Using "AutoSplit" would also be a rename (branding), and the name is used by an existing open-source speedrunning tool: worth a trademark check.

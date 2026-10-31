@@ -40,9 +40,11 @@ PR and push that touches iOS or the core.
 ## TestFlight
 
 `.github/workflows/testflight.yml` archives a signed Release build and uploads it to App Store
-Connect: **Actions → TestFlight → Run workflow** (or push a tag `ios-v*`). Signing is automatic:
-Xcode creates the distribution certificate and profile with the API key, so nothing is stored
-in git. The build number is the workflow run number. On PRs it only makes an unsigned device
+Connect: **Actions → TestFlight → Run workflow** (or push a tag `ios-v*`). Each run creates a
+throwaway Apple Distribution certificate and App Store profile through the API key
+(`scripts/asc.py`), signs with them, uploads, then revokes and deletes them (already uploaded
+builds are unaffected), so no signing material is stored anywhere. Xcode 26 (`macos-26`) is
+required by App Store Connect. The build number is the workflow run number. On PRs it only makes an unsigned device
 archive.
 
 One-time setup (owner, after the Apple Developer Program is approved):
@@ -54,7 +56,7 @@ One-time setup (owner, after the Apple Developer Program is approved):
 3. **App record**: App Store Connect → Apps → + New App: iOS, name "DiBillSion", primary language
    Spanish (Spain), bundle ID `com.dibillsion.app`, SKU `dibillsion-ios`.
 4. **API key**: App Store Connect → Users and Access → Integrations → App Store Connect API →
-   Team Keys → +, access **Admin** (needed for CI to create the signing certificate itself).
+   Team Keys → +, access **Admin** (CI creates and revokes its signing certificate itself).
    Download the `.p8` (only possible once) and add the secrets:
    ```bash
    gh secret set ASC_KEY_ID --body "<Key ID>"
