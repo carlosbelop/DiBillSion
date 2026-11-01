@@ -19,7 +19,7 @@ required-features = ["bindgen"]
 bindgen = ["uniffi/cli"]
 
 [dependencies]
-base64 = "0.22"
+base64 = "0.23"
 dibill-domain.workspace = true
 dibill-proto.workspace = true
 dibill-receipt.workspace = true
