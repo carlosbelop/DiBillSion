@@ -168,7 +168,7 @@ private struct ReceiptReviewView: View {
                         Label("Add item", systemImage: "plus")
                     }
                 } footer: {
-                    Text("Tap people to choose who shares each item. Everyone shares it until you do.")
+                    Text("Tap who shares an item to change it. Everyone shares it until you do.")
                 }
 
                 if let exponent {
@@ -244,35 +244,16 @@ private struct ReceiptReviewView: View {
             Text("Includes a \(Money.format(-line.discountMinor, exponent: exponent, code: draft.currency)) discount")
                 .font(.caption).foregroundStyle(.secondary)
         }
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                let all = line.members.isSuperset(of: everyone)
-                chip(Text("Everyone"), selected: all) {
-                    model.editReceipt { $0.update(line.id) { $0.members = all ? [] : everyone } }
-                }
-                ForEach(active, id: \.id) { m in
-                    let on = line.members.contains(m.id)
-                    chip(Text(m.displayName), selected: on && !all) {
-                        // From "everyone", a tap picks just that person: the usual case.
-                        model.editReceipt {
-                            $0.update(line.id) { l in
-                                if all { l.members = [m.id] } else if on { l.members.remove(m.id) } else { l.members.insert(m.id) }
-                            }
-                        }
+        SharedByRow(
+            people: active, selected: line.members,
+            toggle: { id in
+                model.editReceipt {
+                    $0.update(line.id) { l in
+                        if l.members.contains(id) { l.members.remove(id) } else { l.members.insert(id) }
                     }
                 }
-            }
-        }
-    }
-
-    private func chip(_ label: Text, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            label.font(.subheadline)
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(Capsule().fill(selected ? Color.teal : Color(.secondarySystemFill)))
-                .foregroundStyle(selected ? .white : .primary)
-        }
-        .buttonStyle(.plain)
+            },
+            setAll: { on in model.editReceipt { $0.update(line.id) { $0.members = on ? everyone : [] } } })
     }
 
     private func message(_ problem: ReceiptDraft.Problem) -> String {

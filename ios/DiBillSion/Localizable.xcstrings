@@ -434,6 +434,16 @@
         }
       }
     },
+    "Choose who shares it": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige quién lo comparte"
+          }
+        }
+      }
+    },
     "Close": {
       "localizations": {
         "es": {
@@ -603,6 +613,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "¿Descartar lo que has escrito?"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hecho"
           }
         }
       }
@@ -936,6 +956,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se ha encontrado el total en el ticket. Los artículos suman %@."
+          }
+        }
+      }
+    },
+    "Nobody": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nadie"
           }
         }
       }
@@ -1330,6 +1360,26 @@
         }
       }
     },
+    "Tap who shares an item to change it. Everyone in the group sees the change.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca quién comparte un artículo para cambiarlo. Todo el grupo ve el cambio."
+          }
+        }
+      }
+    },
+    "Tap who shares an item to change it. Everyone shares it until you do.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca quién comparte un artículo para cambiarlo. Mientras no lo hagas, lo comparten todos."
+          }
+        }
+      }
+    },
     "That invite link isn’t valid any more. Ask for a new one.": {
       "localizations": {
         "es": {
@@ -1526,6 +1576,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quién recibe, quién debe"
+          }
+        }
+      }
+    },
+    "Who shares it": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quién lo comparte"
           }
         }
       }
