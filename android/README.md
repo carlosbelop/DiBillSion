@@ -16,3 +16,33 @@ The Gradle build runs two tasks per variant:
 - `uniffiBindings<Variant>`: `scripts/gen-bindings.sh` into `build/generated/uniffi/<variant>`.
 
 Neither output is checked in.
+
+## Builds for testers
+
+Two apps that can live side by side on one phone:
+
+| Build | Package | Name on the phone | Server |
+|---|---|---|---|
+| debug | `com.dibillsion.app.dev` | DiBillSion dev | `dibill.debugSyncUrl`, else `http://127.0.0.1:8080` (`adb reverse`) |
+| release | `com.dibillsion.app` | DiBillSion | `dibill.syncUrl` (or `DIBILL_SYNC_URL`) |
+
+Everything private lives outside the repo, in `~/.gradle/gradle.properties`:
+
+```properties
+dibill.syncUrl=https://api.example.com
+dibill.debugSyncUrl=https://api.example.com
+dibill.releaseSigning=/home/<you>/.config/dibillsion/android-release.properties
+```
+
+The signing properties file holds `storeFile`, `storePassword`, `keyAlias` and `keyPassword`.
+**The keystore can't be replaced:** an APK signed with another key won't install over the
+testers' app (they would have to uninstall and lose their local data). Keep a copy of the
+`.jks` and its properties file somewhere safe, such as a password manager.
+
+`scripts/android-release.sh <folder>` builds the signed APK from the current checkout (build from
+an up-to-date `main`), checks the signature and the server URL, and writes
+`DiBillSion-0.1.<commits>.apk` there. The version code is the commit count, so each new build
+installs over the last one and keeps the testers' data.
+
+Testers install it from the file (Android asks to allow installs from that app once). Updates
+are the same: open the newer APK.
