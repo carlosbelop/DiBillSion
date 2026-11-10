@@ -1,9 +1,27 @@
+import java.util.Properties
 import javax.inject.Inject
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+/** Commits on the current branch: grows with every release built from main, so updates install over the old app. */
+val commitCount: Int = providers.exec {
+    commandLine("git", "rev-list", "--count", "HEAD")
+    isIgnoreExitValue = true
+}.standardOutput.asText.map { it.trim().toIntOrNull() ?: 1 }.getOrElse(1)
+
+/**
+ * The release signing key stays out of the repo (it can never be replaced: losing it means
+ * testers must uninstall to update). `dibill.releaseSigning` (Gradle property) names a
+ * properties file with storeFile, storePassword, keyAlias and keyPassword; without it the
+ * release APK is unsigned (CI).
+ */
+val releaseSigning: Properties? = providers.gradleProperty("dibill.releaseSigning").orNull
+    ?.let { file(it) }
+    ?.takeIf { it.isFile }
+    ?.let { f -> Properties().apply { f.inputStream().use(::load) } }
 
 android {
     namespace = "com.dibillsion.app"
@@ -14,12 +32,28 @@ android {
         applicationId = "com.dibillsion.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = commitCount
+        versionName = "0.1.$commitCount"
+        manifestPlaceholders["appLabel"] = "@string/app_name"
+    }
+
+    signingConfigs {
+        releaseSigning?.let { p ->
+            create("release") {
+                storeFile = file(p.getProperty("storeFile"))
+                storePassword = p.getProperty("storePassword")
+                keyAlias = p.getProperty("keyAlias")
+                keyPassword = p.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         debug {
+            // Installs next to the release app, so the developer's phone can run both.
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            manifestPlaceholders["appLabel"] = "DiBillSion dev"
             // A dev server on this computer, reached through `adb reverse tcp:8080 tcp:8080`,
             // unless `dibill.debugSyncUrl` points debug builds at a real server (the beta one).
             val syncUrl = providers.gradleProperty("dibill.debugSyncUrl").getOrElse("http://127.0.0.1:8080")
@@ -32,6 +66,7 @@ android {
                 .orElse(providers.environmentVariable("DIBILL_SYNC_URL"))
                 .getOrElse("")
             buildConfigField("String", "SYNC_URL", "\"$syncUrl\"")
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
