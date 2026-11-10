@@ -159,4 +159,7 @@
         <item quantity="one">Un grupo compartido ya no está en el servidor, así que ha dejado de sincronizarse. Sigue en este teléfono; vuelve a invitar a la gente para compartirlo.</item>
         <item quantity="other">%1$d grupos compartidos ya no están en el servidor, así que han dejado de sincronizarse. Siguen en este teléfono; vuelve a invitar a la gente para compartirlos.</item>
     </plurals>
+    <string name="receipt_photo">Foto del ticket</string>
+    <string name="receipt_photo_unavailable">La foto del ticket aún no está disponible. Aparecerá cuando sincronice el teléfono que la hizo.</string>
+    <string name="close">Cerrar</string>
 </resources>

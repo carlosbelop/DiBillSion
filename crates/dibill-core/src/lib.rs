@@ -183,6 +183,17 @@ pub struct TransactionDto {
     /// Total in the group's base currency when `currency` is foreign. Filled
     /// by the core when listing; ignored when saving.
     pub base_total_minor: Option<i64>,
+    /// The receipt photo, if one is attached ([`Core::receipt_image`]). Filled by the core when
+    /// listing; ignored when saving ([`Core::set_receipt_image`] attaches one).
+    #[uniffi(default = None)]
+    pub receipt_image_id: Option<String>,
+}
+
+/// A receipt photo's bytes.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct ImageDto {
+    pub mime: String,
+    pub bytes: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
@@ -410,6 +421,7 @@ impl Core {
         let store = self.store();
         let group = GroupId(uuid(&group_id)?);
         let base = store.group(group)?.base_currency;
+        let photos = store.receipt_images(group)?;
         store
             .transactions(group)?
             .into_iter()
@@ -424,8 +436,10 @@ impl Core {
                     }
                     None => None,
                 };
+                let photo = photos.get(&t.id).map(ToString::to_string);
                 Ok(TransactionDto {
                     base_total_minor: base_total,
+                    receipt_image_id: photo,
                     ..to_dto(t)
                 })
             })
@@ -593,6 +607,7 @@ fn to_dto(t: Transaction) -> TransactionDto {
         fx_rate: t.fx_rate.map(|r| r.value().to_string()),
         date_days: t.date_days,
         base_total_minor: None,
+        receipt_image_id: None,
         items: t
             .items
             .into_iter()
@@ -656,6 +671,7 @@ mod tests {
                 shares: equal(&[&a, &b]),
             }],
             base_total_minor: None,
+            receipt_image_id: None,
         };
         let id = core.save_transaction(dinner.clone()).unwrap();
         let listed = core.transactions(g.clone()).unwrap();
@@ -664,6 +680,7 @@ mod tests {
             vec![TransactionDto {
                 id: Some(id),
                 base_total_minor: Some(922),
+                receipt_image_id: None,
                 ..dinner
             }]
         );
@@ -710,6 +727,7 @@ mod tests {
                 date_days: 20_000,
                 items: vec![item("PAN", 200), item("VINO", 800)],
                 base_total_minor: None,
+                receipt_image_id: None,
             })
             .unwrap();
         core.set_item_member(id.clone(), 1, b.clone(), false)
@@ -783,6 +801,7 @@ mod tests {
                     .to_vec(),
             }],
             base_total_minor: None,
+            receipt_image_id: None,
         })
         .unwrap();
         core.set_me(g.clone(), Some(b.clone())).unwrap();
@@ -815,6 +834,7 @@ mod tests {
         let a = core.add_member(g.clone(), "A".into()).unwrap();
         let bad = TransactionDto {
             base_total_minor: None,
+            receipt_image_id: None,
             id: None,
             group_id: g.clone(),
             kind: TransactionKindDto::Expense,

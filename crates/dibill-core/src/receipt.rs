@@ -6,10 +6,11 @@ use std::sync::Arc;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use dibill_proto::{ScanReceipt, ScannedReceipt};
+use dibill_proto::{Attachment, ScanReceipt, ScannedReceipt};
 
 use crate::sync::{json, parse, send_timed};
-use crate::{Core, CoreError, GroupId, HttpTransport, uuid};
+use crate::{Core, CoreError, GroupId, HttpTransport, ImageDto, uuid};
+use dibill_store::TransactionId;
 
 /// The server may ask the model twice (repair retry), each up to its own timeout.
 const SCAN_TIMEOUT_SECS: u32 = 150;
@@ -103,6 +104,89 @@ impl Core {
         })
     }
 }
+
+#[uniffi::export]
+impl Core {
+    /// Attaches a receipt photo to a saved expense (ADR 0010) and returns its id. It is
+    /// uploaded with the group's next sync, so everyone in the group can open it.
+    ///
+    /// # Errors
+    /// [`CoreError::NotFound`] for an unknown or deleted transaction;
+    /// [`CoreError::InvalidInput`] for an empty or oversized image or another type.
+    pub fn set_receipt_image(
+        &self,
+        transaction_id: String,
+        image: Vec<u8>,
+        mime: String,
+    ) -> Result<String, CoreError> {
+        if !matches!(mime.as_str(), "image/jpeg" | "image/png" | "image/webp") {
+            return Err(CoreError::InvalidInput {
+                reason: "the image must be JPEG, PNG or WebP".into(),
+            });
+        }
+        if image.is_empty() || image.len() > dibill_proto::MAX_RECEIPT_BYTES {
+            return Err(CoreError::InvalidInput {
+                reason: "the image is empty or too large".into(),
+            });
+        }
+        let id =
+            self.store()
+                .set_receipt_image(TransactionId(uuid(&transaction_id)?), &mime, &image)?;
+        Ok(id.to_string())
+    }
+
+    /// A receipt photo already on this phone, without the network.
+    ///
+    /// # Errors
+    /// [`CoreError::InvalidInput`] for a malformed id.
+    pub fn receipt_image_local(&self, image_id: String) -> Result<Option<ImageDto>, CoreError> {
+        let (_, local) = self.store().attachment(uuid(&image_id)?)?;
+        Ok(local.map(|(mime, bytes)| ImageDto { mime, bytes }))
+    }
+
+    /// A receipt photo: from this phone, or downloaded once from the server and kept.
+    ///
+    /// # Errors
+    /// [`CoreError::NotFound`] when no group names it; [`CoreError::Offline`];
+    /// [`CoreError::Server`] (e.g. `not_found` while the photographer's phone hasn't synced).
+    pub fn receipt_image(
+        &self,
+        transport: Arc<dyn HttpTransport>,
+        image_id: String,
+    ) -> Result<ImageDto, CoreError> {
+        let id = uuid(&image_id)?;
+        let (group, local) = self.store().attachment(id)?;
+        if let Some((mime, bytes)) = local {
+            return Ok(ImageDto { mime, bytes });
+        }
+        let group = group.ok_or(CoreError::NotFound)?;
+        let body = self.authed(&*transport, |token| {
+            send_timed(
+                &*transport,
+                "GET",
+                format!("/v1/groups/{}/attachments/{id}", group.0),
+                Some(token),
+                None,
+                ATTACHMENT_TIMEOUT_SECS,
+            )
+        })?;
+        let a: Attachment = parse(&body)?;
+        let bytes = STANDARD
+            .decode(a.data_base64.as_bytes())
+            .map_err(|e| CoreError::Server {
+                code: "invalid_response".into(),
+                reason: e.to_string(),
+            })?;
+        self.store().cache_attachment(id, group, &a.mime, &bytes)?;
+        Ok(ImageDto {
+            mime: a.mime,
+            bytes,
+        })
+    }
+}
+
+/// Uploading or downloading a ~300 KB photo on a slow connection.
+pub(crate) const ATTACHMENT_TIMEOUT_SECS: u32 = 60;
 
 /// Days since 1970-01-01 of a proleptic Gregorian date (H. Hinnant's algorithm).
 fn days_from_civil(year: i32, month: u8, day: u8) -> i32 {

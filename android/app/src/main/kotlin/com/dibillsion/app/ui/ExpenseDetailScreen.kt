@@ -1,7 +1,12 @@
 package com.dibillsion.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -13,8 +18,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -26,12 +33,23 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -112,6 +130,7 @@ fun ExpenseDetailScreen(d: GroupDetail, t: TransactionDto, vm: AppViewModel, onC
                     )
                 }
             }
+            t.receiptImageId?.let { ReceiptPhoto(it, vm) }
             Text(
                 stringResource(R.string.detail_items_hint),
                 style = MaterialTheme.typography.bodyMedium,
@@ -184,6 +203,74 @@ fun ExpenseDetailScreen(d: GroupDetail, t: TransactionDto, vm: AppViewModel, onC
                 }
             }
             if (active.isEmpty()) Text(stringResource(R.string.error_nobody))
+        }
+    }
+}
+
+/** The receipt photo: a thumbnail that opens full screen, where it can be pinched and moved. */
+@Composable
+private fun ReceiptPhoto(imageId: String, vm: AppViewModel) {
+    var image by remember(imageId) { mutableStateOf<ImageBitmap?>(null) }
+    var failed by remember(imageId) { mutableStateOf(false) }
+    var open by remember { mutableStateOf(false) }
+    LaunchedEffect(imageId) {
+        image = vm.receiptImage(imageId)
+        failed = image == null
+    }
+    Card(
+        onClick = { if (image != null) open = true },
+        modifier = Modifier.fillMaxWidth().height(160.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            val loaded = image
+            when {
+                loaded != null -> Image(
+                    loaded,
+                    contentDescription = stringResource(R.string.receipt_photo),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                failed -> Text(
+                    stringResource(R.string.receipt_photo_unavailable),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(16.dp),
+                )
+                else -> CircularProgressIndicator()
+            }
+        }
+    }
+    val loaded = image
+    if (open && loaded != null) {
+        Dialog(onDismissRequest = { open = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            var scale by remember { mutableFloatStateOf(1f) }
+            var offset by remember { mutableStateOf(Offset.Zero) }
+            Box(
+                Modifier.fillMaxSize().background(Color.Black)
+                    .pointerInput(Unit) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            scale = (scale * zoom).coerceIn(1f, 6f)
+                            offset = if (scale == 1f) Offset.Zero else offset + pan
+                        }
+                    },
+            ) {
+                Image(
+                    loaded,
+                    contentDescription = stringResource(R.string.receipt_photo),
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize().graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = offset.x
+                        translationY = offset.y
+                    },
+                )
+                IconButton(onClick = { open = false }, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
+                    Icon(Icons.Filled.Close, stringResource(R.string.close), tint = Color.White)
+                }
+            }
         }
     }
 }

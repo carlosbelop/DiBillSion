@@ -668,7 +668,124 @@ impl Store {
         let tx = self.conn.unchecked_transaction()?;
         tx.execute("DELETE FROM group_sync WHERE group_id = ?1", [group.0])?;
         tx.execute("UPDATE ops SET pushed = 0 WHERE group_id = ?1", [group.0])?;
+        tx.execute(
+            "UPDATE attachments SET uploaded = 0 WHERE group_id = ?1",
+            [group.0],
+        )?;
         tx.commit()?;
+        Ok(())
+    }
+
+    /// Attaches a receipt photo to a live expense or income (ADR 0010): the bytes stay in this
+    /// store until uploaded on sync; the transaction's `attachment` field names it for everyone.
+    /// Returns the attachment id.
+    ///
+    /// # Errors
+    /// [`StoreError::NotFound`] for an unknown or deleted transaction.
+    pub fn set_receipt_image(&self, id: TransactionId, mime: &str, bytes: &[u8]) -> Result<Uuid> {
+        let group: Uuid = self
+            .conn
+            .query_row(
+                "SELECT group_id FROM transactions WHERE id = ?1 AND deleted_at IS NULL",
+                [id.0],
+                |r| r.get(0),
+            )
+            .optional()?
+            .ok_or(StoreError::NotFound)?;
+        let attachment = Uuid::now_v7();
+        self.conn.execute(
+            "INSERT INTO attachments (id, group_id, mime, bytes) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![attachment, group, mime, bytes],
+        )?;
+        self.write(
+            GroupId(group),
+            Entity::Transaction(id),
+            vec![set(Field::Attachment, json(&Some(attachment)))],
+        )?;
+        Ok(attachment)
+    }
+
+    /// The receipt photo of each live transaction in `group` that has one.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn receipt_images(&self, group: GroupId) -> Result<BTreeMap<TransactionId, Uuid>> {
+        Ok(self
+            .conn
+            .prepare_cached(
+                "SELECT id, attachment_id FROM transactions
+                 WHERE group_id = ?1 AND deleted_at IS NULL AND attachment_id IS NOT NULL",
+            )?
+            .query_map([group.0], |r| Ok((TransactionId(r.get(0)?), r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// An attachment's group (known from the transaction that names it, even before the bytes
+    /// arrive) and its `(mime, bytes)` when this store has them.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    #[allow(clippy::type_complexity)]
+    pub fn attachment(&self, id: Uuid) -> Result<(Option<GroupId>, Option<(String, Vec<u8>)>)> {
+        let local: Option<(Uuid, String, Vec<u8>)> = self
+            .conn
+            .query_row(
+                "SELECT group_id, mime, bytes FROM attachments WHERE id = ?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .optional()?;
+        if let Some((group, mime, bytes)) = local {
+            return Ok((Some(GroupId(group)), Some((mime, bytes))));
+        }
+        let group: Option<Uuid> = self
+            .conn
+            .query_row(
+                "SELECT group_id FROM transactions WHERE attachment_id = ?1 LIMIT 1",
+                [id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        Ok((group.map(GroupId), None))
+    }
+
+    /// Keeps a downloaded attachment (the server already has it).
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn cache_attachment(
+        &self,
+        id: Uuid,
+        group: GroupId,
+        mime: &str,
+        bytes: &[u8],
+    ) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO attachments (id, group_id, mime, bytes, uploaded) VALUES (?1, ?2, ?3, ?4, 1)",
+            rusqlite::params![id, group.0, mime, bytes],
+        )?;
+        Ok(())
+    }
+
+    /// Attachments of `group` the server doesn't have yet, as `(id, mime, bytes)`.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn pending_attachments(&self, group: GroupId) -> Result<Vec<(Uuid, String, Vec<u8>)>> {
+        Ok(self
+            .conn
+            .prepare_cached(
+                "SELECT id, mime, bytes FROM attachments WHERE group_id = ?1 AND uploaded = 0",
+            )?
+            .query_map([group.0], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// # Errors
+    /// SQLite errors.
+    pub fn mark_attachment_uploaded(&self, id: Uuid) -> Result<()> {
+        self.conn
+            .execute("UPDATE attachments SET uploaded = 1 WHERE id = ?1", [id])?;
         Ok(())
     }
 

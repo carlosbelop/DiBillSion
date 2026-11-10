@@ -89,7 +89,7 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 ### Tester feedback (owner, 2026-11-10)
 - [x] Quick fixes: iOS action bar always shown (was a bottom toolbar that didn't appear in a just-created group) and an explanation when the group has nobody yet; equal description/amount field sizes; Android description above the amount and icons on every menu option. ([#115](https://github.com/carlosbelop/DiBillSion/pull/115))
 - [x] Clickable https invite links: `https://<site>/join/<code>` returned by the server with each invite (`Invite.link`, core `invite`), a join page (es/en, code + how to get the app, nothing about the group), `apple-app-site-association` and `assetlinks.json` so the installed apps open them (iOS Associated Domains turned on by `asc.py ensure-capability`, Android App Links filter). Needs on the VPS: DNS for the site domain and the `DIBILL_SITE_URL`/`DIBILL_IOS_APP_IDS`/`DIBILL_ANDROID_APPS` settings. ([#117](https://github.com/carlosbelop/DiBillSion/pull/117))
-- [ ] Receipt photo kept with the expense, synced, viewable full screen (both).
+- [x] Receipt photo kept with the expense ([ADR 0010](adr/0010-receipt-photos.md)): the scanned JPEG is attached on save (transaction field `attachment`, store schema v5 `attachments`), uploaded on sync before the ops, stored on the server for the group's members, downloaded once by the other phones; expense detail shows a thumbnail that opens full screen with pinch-to-zoom (both). ([#119](https://github.com/carlosbelop/DiBillSion/pull/119))
 - [ ] iOS: choose people per item from a list, not a sideways-scrolling row.
 - [ ] Android: split by percentage and by parts (expense and receipt items).
 

@@ -14,6 +14,7 @@ use uuid::Uuid;
 
 use crate::{Pool, Receipts, Site, app, migrate, pool};
 
+mod attachments;
 mod receipts;
 mod site;
 
