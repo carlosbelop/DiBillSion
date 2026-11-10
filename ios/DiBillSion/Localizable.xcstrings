@@ -304,6 +304,26 @@
         }
       }
     },
+    "Add people": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir personas"
+          }
+        }
+      }
+    },
+    "Add people first": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primero añade personas"
+          }
+        }
+      }
+    },
     "Add person": {
       "localizations": {
         "es": {
@@ -666,6 +686,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gastos"
+          }
+        }
+      }
+    },
+    "Expenses are split between the people in the group, and this group has nobody yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los gastos se reparten entre las personas del grupo, y este grupo aún no tiene a nadie."
           }
         }
       }

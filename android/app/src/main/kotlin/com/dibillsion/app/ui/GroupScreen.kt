@@ -35,6 +35,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
@@ -212,6 +217,7 @@ private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: (
                         if (d.shared) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.turn_off_invite)) },
+                                leadingIcon = { Icon(Icons.Filled.LinkOff, null) },
                                 onClick = {
                                     menu = false
                                     vm.turnOffInvite()
@@ -228,6 +234,7 @@ private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: (
                         )
                         DropdownMenuItem(
                             text = { Text(stringResource(if (d.group.archived) R.string.restore_group else R.string.archive_group)) },
+                            leadingIcon = { Icon(if (d.group.archived) Icons.Filled.Unarchive else Icons.Filled.Archive, null) },
                             onClick = {
                                 menu = false
                                 vm.setArchived(!d.group.archived)
@@ -697,6 +704,7 @@ private fun ScanButton(vm: AppViewModel) {
         DropdownMenu(expanded = choosing, onDismissRequest = { choosing = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.take_photo)) },
+                leadingIcon = { Icon(Icons.Filled.PhotoCamera, null) },
                 onClick = {
                     choosing = false
                     try {
@@ -708,6 +716,7 @@ private fun ScanButton(vm: AppViewModel) {
             )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.choose_image)) },
+                leadingIcon = { Icon(Icons.Filled.Image, null) },
                 onClick = {
                     choosing = false
                     gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))

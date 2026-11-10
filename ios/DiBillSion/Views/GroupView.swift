@@ -11,6 +11,7 @@ struct GroupView: View {
     @State private var choosingMe = false
     @State private var askedMe = false
     @State private var confirmDelete = false
+    @State private var nobodyYet = false
 
     var body: some View {
         Group {
@@ -48,16 +49,15 @@ struct GroupView: View {
         .refreshable { await model.refresh() }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { menu(d) }
-            ToolbarItem(placement: .bottomBar) {
-                ScanReceiptButton().disabled(d.members.filter(\.active).isEmpty)
-            }
-            ToolbarItem(placement: .bottomBar) {
-                Button { addingExpense = true } label: {
-                    Label("Add expense", systemImage: "plus.circle.fill").labelStyle(.titleAndIcon)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(d.members.filter(\.active).isEmpty)
-            }
+        }
+        // A bar of our own rather than a bottom toolbar: the toolbar sometimes didn't show in a
+        // group opened right after creating it.
+        .safeAreaInset(edge: .bottom) { actions(d) }
+        .alert("Add people first", isPresented: $nobodyYet) {
+            Button("Add people") { tab = .people }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Expenses are split between the people in the group, and this group has nobody yet.")
         }
         .sheet(isPresented: $addingExpense) { AddExpenseView(d: d) }
         .fullScreenCover(isPresented: Binding(get: { model.scan != nil },
@@ -81,6 +81,32 @@ struct GroupView: View {
                 choosingMe = true
             }
         }
+    }
+
+    /// Scan and add, always visible; with nobody to split with they explain why instead.
+    private func actions(_ d: GroupDetail) -> some View {
+        let nobody = d.members.filter(\.active).isEmpty
+        return HStack(spacing: 12) {
+            if nobody {
+                Button { nobodyYet = true } label: {
+                    Label("Scan receipt", systemImage: "doc.text.viewfinder")
+                }
+                .buttonStyle(.bordered)
+            } else {
+                ScanReceiptButton().buttonStyle(.bordered)
+            }
+            Button {
+                if nobody { nobodyYet = true } else { addingExpense = true }
+            } label: {
+                Label("Add expense", systemImage: "plus.circle.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .controlSize(.large)
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(.bar)
     }
 
     private func header(_ d: GroupDetail) -> some View {
