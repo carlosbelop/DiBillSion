@@ -110,6 +110,7 @@ Each scan is a row in `receipt_scans` (time, model, tokens, no image):
   `docker compose exec -T db pg_restore -U dibill -d dibill --clean --if-exists < backups/<file>.dump`,
   then `docker compose start server`.
 - Update: run `deploy.sh` again; migrations run on start.
+- Changed a setting in `.env`: `docker compose up -d` there (the deployed image tag is kept in `.env` as `DIBILL_IMAGE`).
 
 ## Backups on another computer
 
