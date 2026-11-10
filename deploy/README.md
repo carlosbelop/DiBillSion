@@ -95,3 +95,22 @@ Each scan is a row in `receipt_scans` (time, model, tokens, no image):
   `docker compose exec -T db pg_restore -U dibill -d dibill --clean --if-exists < backups/<file>.dump`,
   then `docker compose start server`.
 - Update: run `deploy.sh` again; migrations run on start.
+
+## Backups on another computer
+
+The nightly dumps live on the server's own disk; a second copy elsewhere protects against losing it.
+A dedicated key that can only download dumps (`serve-backup.sh` as its forced command) keeps that
+copy current without a passphrase prompt:
+
+1. On the computer: `ssh-keygen -t ed25519 -N "" -C "dibillsion backups (download only)" -f ~/.ssh/dibillsion_backup`.
+2. On the server, add to `~/.ssh/authorized_keys`:
+   `command="/home/<user>/dibillsion/serve-backup.sh",restrict ssh-ed25519 AAAA… dibillsion backups (download only)`.
+   `restrict` turns off shells, port forwarding and the rest; the script only answers `list` and
+   `get <dump>` (`deploy.sh` installs it).
+3. Run [`pull-backups.sh`](pull-backups.sh) daily (`DIBILL_HOST`, `DIBILL_BACKUP_DIR`; keeps the newest 30).
+   The beta's copy goes to `C:\Users\<you>\DiBillSion-backups` through a Windows scheduled task
+   ("DiBillSion backups": daily at 21:00 and at log-on, catching up if the PC was off) that runs
+   `wsl.exe -d Ubuntu --exec bash -lc "… ~/.local/bin/dibillsion-pull-backups >> …/pull.log"`.
+
+The dumps hold every group's data (names, amounts): keep that folder private.
+Restore one as in *Operations* above (`pg_restore` 17 or newer).
