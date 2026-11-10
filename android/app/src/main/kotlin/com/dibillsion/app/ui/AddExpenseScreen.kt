@@ -38,6 +38,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -53,6 +54,8 @@ import com.dibillsion.app.AppViewModel
 import com.dibillsion.app.GroupDetail
 import com.dibillsion.app.Money
 import com.dibillsion.app.R
+import com.dibillsion.app.Split
+import com.dibillsion.app.SplitMode
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
@@ -72,6 +75,8 @@ fun AddExpenseScreen(d: GroupDetail, vm: AppViewModel, onDone: () -> Unit) {
     // Paid by me by default (SPEC flow 2), else the first person.
     var payer by rememberSaveable { mutableStateOf(d.meId?.takeIf { me -> active.any { it.id == me } } ?: active.firstOrNull()?.id) }
     var among by rememberSaveable { mutableStateOf(active.map { it.id }) }
+    var mode by rememberSaveable { mutableStateOf(SplitMode.EQUAL) }
+    val values = remember { mutableStateMapOf<String, String>() }
     var day by rememberSaveable { mutableIntStateOf(LocalDate.now().toEpochDay().toInt()) }
     var pickingDate by remember { mutableStateOf(false) }
     var discarding by remember { mutableStateOf(false) }
@@ -83,18 +88,18 @@ fun AddExpenseScreen(d: GroupDetail, vm: AppViewModel, onDone: () -> Unit) {
     val problem = when {
         amount.isNotBlank() && minor == null -> R.string.error_amount
         foreign && rate.isNotBlank() && fxRate == null -> R.string.error_rate
-        among.isEmpty() -> R.string.error_nobody
         else -> null
     }
-    val canSave = title.isNotBlank() && minor != null && payer != null && among.isNotEmpty() && (!foreign || fxRate != null)
+    val split = Split.shares(mode, active.map { it.id }, among.toSet(), values, minor, exponent ?: 2)
+    val canSave = title.isNotBlank() && minor != null && payer != null && split.problem == null &&
+        split.shares.isNotEmpty() && (!foreign || fxRate != null)
     val dirty = title.isNotBlank() || amount.isNotBlank()
     val close = { if (dirty) discarding = true else onDone() }
     BackHandler(onBack = close)
 
     // Shares in the expense currency, in member order, exactly as the core will split them.
-    val included = active.map { it.id }.filter { it in among }
-    val preview = minor?.let { vm.previewEqualSplit(it, included) }.orEmpty()
-    val shareOf = included.zip(preview).toMap()
+    val preview = minor?.takeIf { split.problem == null }?.let { vm.previewShares(it, split.shares) }.orEmpty()
+    val shareOf = split.shares.map { it.memberId }.zip(preview).toMap()
 
     if (discarding) {
         ConfirmDialog(
@@ -125,7 +130,7 @@ fun AddExpenseScreen(d: GroupDetail, vm: AppViewModel, onDone: () -> Unit) {
                 navigationIcon = { IconButton(onClick = close) { Icon(Icons.Filled.Close, stringResource(R.string.cancel)) } },
                 actions = {
                     TextButton(enabled = canSave, onClick = {
-                        vm.addExpense(title, minor ?: return@TextButton, currency, fxRate, payer ?: return@TextButton, among, day)
+                        vm.addExpense(title, minor ?: return@TextButton, currency, fxRate, payer ?: return@TextButton, split.shares, day)
                         onDone()
                     }) { Text(stringResource(R.string.save)) }
                 },
@@ -189,27 +194,30 @@ fun AddExpenseScreen(d: GroupDetail, vm: AppViewModel, onDone: () -> Unit) {
 
             HorizontalDivider()
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.split_between), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                val all = among.size == active.size
-                TextButton(onClick = { among = if (all) emptyList() else active.map { it.id } }) {
-                    Text(stringResource(if (all) R.string.select_none else R.string.select_all))
+                Text(stringResource(R.string.split), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                if (mode == SplitMode.EQUAL) {
+                    val all = among.size == active.size
+                    TextButton(onClick = { among = if (all) emptyList() else active.map { it.id } }) {
+                        Text(stringResource(if (all) R.string.select_none else R.string.select_all))
+                    }
                 }
             }
+            SplitModeSelector(mode, withAmounts = true) { mode = it }
             active.forEach { m ->
-                val on = m.id in among
-                Row(
-                    Modifier.fillMaxWidth().clickable { among = if (on) among - m.id else among + m.id }.padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(checked = on, onCheckedChange = { among = if (it) among + m.id else among - m.id })
-                    Avatar(initials(m.displayName), m.id, size = 32.dp)
-                    Text(m.displayName, Modifier.padding(start = 12.dp).weight(1f), style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        shareOf[m.id]?.let { Money.format(it, exponent ?: 2, currency) } ?: "—",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                SplitRow(
+                    name = m.displayName,
+                    id = m.id,
+                    mode = mode,
+                    included = m.id in among,
+                    onIncluded = { on -> among = if (on) among + m.id else among - m.id },
+                    value = values[m.id].orEmpty(),
+                    onValue = { values[m.id] = it },
+                    share = shareOf[m.id]?.let { Money.format(it, exponent ?: 2, currency) },
+                    unit = if (mode == SplitMode.AMOUNT) currency else null,
+                )
+            }
+            splitProblemText(split.problem, exponent ?: 2, currency)?.let {
+                Text(it, color = MaterialTheme.colorScheme.error)
             }
             problem?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
         }

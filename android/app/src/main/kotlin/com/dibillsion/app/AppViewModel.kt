@@ -258,6 +258,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setItemMember(transactionId: String, itemIndex: Int, memberId: String, included: Boolean) =
         inGroup { core.setItemMember(transactionId, itemIndex.toUInt(), memberId, included) }
 
+    /**
+     * Sets everyone's parts of one item at once (0 = not sharing it). Increases go first, so the
+     * item is never left without anybody halfway through.
+     */
+    fun setItemParts(transactionId: String, itemIndex: Int, parts: Map<String, UInt>, current: Map<String, UInt>) =
+        inGroup {
+            val changes = parts.filter { (id, p) -> current[id] ?: 0u != p }.toList()
+            val (up, down) = changes.partition { (id, p) -> p > (current[id] ?: 0u) }
+            (up + down).forEach { (id, p) -> core.setItemParts(transactionId, itemIndex.toUInt(), id, p) }
+        }
+
+    /** What each of [shares] comes to out of [totalMinor], exactly as the core splits it. */
+    fun previewShares(totalMinor: Long, shares: List<ShareDto>): List<Long> = try {
+        previewSplit(totalMinor, shares)
+    } catch (_: CoreException) {
+        emptyList()
+    }
+
     /** Each share of [item] in its currency, as the core splits it; empty when it can't. */
     fun itemShares(item: ItemDto): List<Long> = try {
         previewSplit(item.totalMinor, item.shares)
@@ -265,14 +283,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         emptyList()
     }
 
-    /** An equal split of [amountMinor] between [among], paid by [payerId]. */
+    /** [amountMinor] paid by [payerId], split as [shares] (equal, parts, percentage or amounts). */
     fun addExpense(
         title: String,
         amountMinor: Long,
         currency: String,
         fxRate: String?,
         payerId: String,
-        among: List<String>,
+        shares: List<ShareDto>,
         dateDays: Int,
     ) = inGroup { d ->
         core.saveTransaction(
@@ -285,7 +303,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 currency = currency,
                 fxRate = fxRate,
                 dateDays = dateDays,
-                items = listOf(ItemDto(null, amountMinor, among.map { ShareDto(it, 1u, null) })),
+                items = listOf(ItemDto(null, amountMinor, shares)),
                 baseTotalMinor = null,
             ),
         )
