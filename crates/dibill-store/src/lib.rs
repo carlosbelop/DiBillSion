@@ -658,6 +658,28 @@ impl Store {
         )?)
     }
 
+    /// Stops syncing `group` and keeps it as a local group: the server doesn't
+    /// have it (any more), or it was deleted here and its deletion is pushed.
+    /// Its ops count as not pushed again, so sharing it later uploads everything.
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn forget_shared(&self, group: GroupId) -> Result<()> {
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute("DELETE FROM group_sync WHERE group_id = ?1", [group.0])?;
+        tx.execute("UPDATE ops SET pushed = 0 WHERE group_id = ?1", [group.0])?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Whether `group` was deleted (here or on another device).
+    ///
+    /// # Errors
+    /// SQLite errors.
+    pub fn is_group_deleted(&self, group: GroupId) -> Result<bool> {
+        sync::is_deleted(&self.conn, group, Entity::Group)
+    }
+
     /// Shared groups with the server cursor each was last pulled up to.
     ///
     /// # Errors

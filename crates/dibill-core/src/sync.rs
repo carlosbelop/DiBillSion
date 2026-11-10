@@ -64,6 +64,9 @@ pub trait HttpTransport: Send + Sync {
 pub struct SyncSummary {
     pub pushed: u32,
     pub pulled: u32,
+    /// Groups the server no longer has (or no longer lets this device into):
+    /// they stopped syncing and stay on this phone as local groups.
+    pub unshared: u32,
 }
 
 impl From<TransportError> for CoreError {
@@ -214,10 +217,27 @@ impl Core {
         }
         self.authed(&*transport, |token| {
             let mut total = SyncSummary::default();
+            // Each group on its own: one the server lost must not block the others.
             for (group, _) in &groups {
-                let s = self.sync_group(&*transport, token, *group)?;
-                total.pushed += s.pushed;
-                total.pulled += s.pulled;
+                match self.sync_group(&*transport, token, *group) {
+                    Ok(s) => {
+                        total.pushed += s.pushed;
+                        total.pulled += s.pulled;
+                        // Deleted here and the deletion is pushed: nothing left to sync.
+                        if self.store().is_group_deleted(*group)? {
+                            self.store().forget_shared(*group)?;
+                        }
+                    }
+                    Err(CoreError::Server { code, .. })
+                        if code == "not_found" || code == "forbidden" =>
+                    {
+                        if !self.store().is_group_deleted(*group)? {
+                            total.unshared += 1;
+                        }
+                        self.store().forget_shared(*group)?;
+                    }
+                    Err(e) => return Err(e),
+                }
             }
             Ok(total)
         })
@@ -671,6 +691,64 @@ mod tests {
             "registered again"
         );
         assert!(a.invite_code(server.clone(), group).is_ok());
+    }
+
+    #[test]
+    fn a_group_the_server_lost_stops_syncing_without_blocking_others() {
+        let server: Arc<FakeServer> = Arc::default();
+        let a = Core::in_memory().unwrap();
+        let lost = a
+            .create_group("Old".into(), None, GroupKindDto::Home, "EUR".into())
+            .unwrap();
+        let kept = a
+            .create_group("Flat".into(), None, GroupKindDto::Home, "EUR".into())
+            .unwrap();
+        a.share_group(server.clone(), lost.clone()).unwrap();
+        a.share_group(server.clone(), kept.clone()).unwrap();
+        // The server's database was replaced: it no longer has the first group.
+        let lost_id: Uuid = lost.parse().unwrap();
+        server.state.lock().unwrap().groups.remove(&lost_id);
+        a.add_member(kept.clone(), "Dani".into()).unwrap();
+        a.add_member(lost.clone(), "Eva".into()).unwrap();
+
+        let s = a.sync(server.clone()).unwrap();
+        assert_eq!((s.pushed, s.unshared), (2, 1));
+        assert!(!a.is_shared(lost.clone()).unwrap());
+        assert!(a.is_shared(kept).unwrap());
+        assert_eq!(
+            a.members(lost.clone()).unwrap().len(),
+            1,
+            "still on the phone"
+        );
+        // Quiet afterwards, and sharing it again uploads its whole history.
+        assert_eq!(a.sync(server.clone()).unwrap().unshared, 0);
+        assert_eq!(a.share_group(server.clone(), lost).unwrap().pushed, 4 + 2);
+    }
+
+    #[test]
+    fn a_deleted_shared_group_is_forgotten_once_its_deletion_is_pushed() {
+        let server: Arc<FakeServer> = Arc::default();
+        let a = Core::in_memory().unwrap();
+        let group = a
+            .create_group("Trip".into(), None, GroupKindDto::Trip, "EUR".into())
+            .unwrap();
+        a.share_group(server.clone(), group.clone()).unwrap();
+        a.delete_group(group.clone()).unwrap();
+        let s = a.sync(server.clone()).unwrap();
+        assert_eq!((s.pushed, s.unshared), (1, 0));
+        assert!(!a.is_shared(group.clone()).unwrap());
+        assert_eq!(a.sync(server.clone()).unwrap(), SyncSummary::default());
+
+        // A deleted group the server never had is dropped quietly too.
+        let ghost = a
+            .create_group("Ghost".into(), None, GroupKindDto::Other, "EUR".into())
+            .unwrap();
+        a.share_group(server.clone(), ghost.clone()).unwrap();
+        let ghost_id: Uuid = ghost.parse().unwrap();
+        server.state.lock().unwrap().groups.remove(&ghost_id);
+        a.delete_group(ghost.clone()).unwrap();
+        assert_eq!(a.sync(server.clone()).unwrap().unshared, 0);
+        assert!(!a.is_shared(ghost).unwrap());
     }
 
     #[test]
