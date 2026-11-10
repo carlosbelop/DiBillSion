@@ -211,6 +211,46 @@
         }
       }
     },
+    "%lld shared groups are no longer on the server, so they stopped syncing. They stay on this phone; invite people again to share them.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "A shared group is no longer on the server, so it stopped syncing. It stays on this phone; invite people again to share it."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld shared groups are no longer on the server, so they stopped syncing. They stay on this phone; invite people again to share them."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Un grupo compartido ya no está en el servidor, así que ha dejado de sincronizarse. Sigue en este teléfono; vuelve a invitar a la gente para compartirlo."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld grupos compartidos ya no están en el servidor, así que han dejado de sincronizarse. Siguen en este teléfono; vuelve a invitar a la gente para compartirlos."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "0": {
       "shouldTranslate": false
     },

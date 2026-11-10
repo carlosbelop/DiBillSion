@@ -97,7 +97,8 @@ final class AppModel {
     func refresh() async {
         let started = Date()
         if let transport {
-            await run { core in _ = try core.sync(transport: transport) }
+            let summary = await run { core in try core.sync(transport: transport) }
+            noteUnshared(summary)
         }
         await refreshGroups()
         if let id = detail?.group.id { await reload(id) }
@@ -349,11 +350,18 @@ final class AppModel {
     }
 
     /// Background sync: offline or server trouble stays quiet until the next try.
+    /// Says once that groups stopped syncing because the server no longer has them.
+    private func noteUnshared(_ summary: SyncSummary?) {
+        guard let n = summary?.unshared, n > 0 else { return }
+        message = String(localized: "\(Int(n)) shared groups are no longer on the server, so they stopped syncing. They stay on this phone; invite people again to share them.")
+    }
+
     private func syncQuietly() {
         guard let transport else { return }
         Task {
             let summary = await run(quiet: true) { core in try core.sync(transport: transport) }
-            if let summary, summary.pulled > 0 {
+            noteUnshared(summary)
+            if let summary, summary.pulled > 0 || summary.unshared > 0 {
                 await refreshGroups()
                 if let id = detail?.group.id { await reload(id) }
             }

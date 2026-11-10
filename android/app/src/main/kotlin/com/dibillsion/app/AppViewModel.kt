@@ -13,6 +13,7 @@ import com.dibillsion.core.GroupKindDto
 import com.dibillsion.core.ItemDto
 import com.dibillsion.core.MemberDto
 import com.dibillsion.core.ShareDto
+import com.dibillsion.core.SyncSummary
 import com.dibillsion.core.TransactionDto
 import com.dibillsion.core.TransactionKindDto
 import com.dibillsion.core.currencyExponent
@@ -126,7 +127,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val minimum = launch { delay(450) }
             withContext(Dispatchers.IO) {
                 try {
-                    transport?.let { core.sync(it) }
+                    transport?.let { core.sync(it) }?.let(::noteUnshared)
                 } catch (e: CoreException) {
                     _state.update { it.copy(error = describe(e)) }
                 }
@@ -207,11 +208,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Background sync: offline or server trouble stays quiet until the next try. */
+    /** Says once that groups stopped syncing because the server no longer has them. */
+    private fun noteUnshared(summary: SyncSummary) {
+        if (summary.unshared > 0u) {
+            val n = summary.unshared.toInt()
+            val text = getApplication<Application>().resources.getQuantityString(R.plurals.groups_unshared, n, n)
+            _state.update { it.copy(error = text) }
+        }
+    }
+
     private fun syncQuietly() {
         val t = transport ?: return
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                if (core.sync(t).pulled > 0u) {
+                val summary = core.sync(t)
+                noteUnshared(summary)
+                if (summary.pulled > 0u || summary.unshared > 0u) {
                     loadGroups()
                     _state.value.detail?.let { loadDetail(it.group.id) }
                 }
