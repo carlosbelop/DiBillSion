@@ -1,0 +1,24 @@
+# HTTPS with Caddy on ports 80/443, for a host with a public IP and its own domain (a VPS).
+# Turn it on in the host's .env:
+#   COMPOSE_FILE=compose.yaml:compose.https.yaml
+#   DIBILL_DOMAIN=api.example.com
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DIBILL_DOMAIN: ${DIBILL_DOMAIN:?set DIBILL_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
