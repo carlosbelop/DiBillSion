@@ -44,7 +44,7 @@ struct ExpenseDetailView: View {
                 }
                 .padding(.vertical, 4)
             } footer: {
-                Text("Tap people to add or remove them from an item. Everyone in the group sees the change.")
+                Text("Tap who shares an item to change it. Everyone in the group sees the change.")
             }
 
             if let photo = t.receiptImageId {
@@ -94,32 +94,25 @@ struct ExpenseDetailView: View {
             Spacer()
             Text(fmt(item.totalMinor)).monospacedDigit()
         }
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                // Active people, plus inactive ones still in the item (they can only leave).
-                ForEach(d.members.filter { $0.active || inItem.contains($0.id) }, id: \.id) { m in
-                    let on = inItem.contains(m.id)
-                    let last = on && inItem.count == 1
-                    // The last person stays shown as selected; tapping them does nothing.
-                    let enabled = byParts && (on || m.active)
-                    Button {
-                        if last { return }
-                        Task {
-                            await model.setItemMember(transactionId: transactionId, itemIndex: index,
-                                                      memberId: m.id, included: !on)
-                        }
-                    } label: {
-                        Text(m.displayName).font(.subheadline)
-                            .padding(.horizontal, 12).padding(.vertical, 6)
-                            .background(Capsule().fill(on ? Color.teal : Color(.secondarySystemFill)))
-                            .foregroundStyle(on ? .white : .primary)
+        // Active people, plus inactive ones still in the item (they can only leave).
+        SharedByRow(
+            people: d.members.filter { $0.active || inItem.contains($0.id) },
+            selected: inItem, allowNone: false, enabled: byParts,
+            toggle: { id in
+                // The last person can't leave (the list disables them).
+                let on = inItem.contains(id)
+                if on && inItem.count == 1 { return }
+                Task { await model.setItemMember(transactionId: transactionId, itemIndex: index, memberId: id, included: !on) }
+            },
+            setAll: { on in
+                guard on else { return }
+                let missing = d.members.filter { $0.active && !inItem.contains($0.id) }.map(\.id)
+                Task {
+                    for id in missing {
+                        await model.setItemMember(transactionId: transactionId, itemIndex: index, memberId: id, included: true)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(!enabled)
-                    .opacity(enabled ? 1 : 0.6)
                 }
-            }
-        }
+            })
         if !byParts {
             Text("Split by exact amounts: change it from the editor.").font(.caption).foregroundStyle(.secondary)
         } else if inItem.count > 1, let low = parts.min(), let high = parts.max() {
