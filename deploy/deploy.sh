@@ -46,6 +46,9 @@ ssh "$host" "test -f $remote_dir/.env" || {
 }
 
 echo "==> starting"
-ssh "$host" "cd $remote_dir && DIBILL_IMAGE=$tag docker compose up -d --no-build && docker compose ps"
+# Remembered in the host's .env, so a later plain `docker compose up -d` (after changing a
+# setting, say) recreates containers with this image instead of looking for :latest.
+ssh "$host" "cd $remote_dir && { grep -q '^DIBILL_IMAGE=' .env && sed -i 's|^DIBILL_IMAGE=.*|DIBILL_IMAGE=$tag|' .env || echo 'DIBILL_IMAGE=$tag' >> .env; }"
+ssh "$host" "cd $remote_dir && docker compose up -d --no-build && docker compose ps"
 ssh "$host" "for i in \$(seq 1 30); do curl -fsS http://127.0.0.1:8080/health && exit 0; sleep 2; done; exit 1" \
     && echo && echo "==> healthy"
