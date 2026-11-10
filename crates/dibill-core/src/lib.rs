@@ -26,7 +26,7 @@ mod receipt;
 mod sync;
 
 pub use receipt::{ScannedItemDto, ScannedReceiptDto};
-pub use sync::{HttpRequest, HttpResponse, HttpTransport, SyncSummary, TransportError};
+pub use sync::{HttpRequest, HttpResponse, HttpTransport, InviteDto, SyncSummary, TransportError};
 
 uniffi::setup_scaffolding!();
 

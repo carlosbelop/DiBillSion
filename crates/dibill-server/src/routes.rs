@@ -272,7 +272,8 @@ pub async fn create_invite(
         code
     };
     tx.commit().await?;
-    Ok(Json(Invite { code }))
+    let link = s.site.invite_link(&code);
+    Ok(Json(Invite { code, link }))
 }
 
 /// `DELETE /v1/groups/{id}/invites`: turns the link off.

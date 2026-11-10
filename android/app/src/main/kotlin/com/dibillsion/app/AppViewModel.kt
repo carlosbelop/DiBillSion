@@ -69,8 +69,9 @@ sealed interface ScanState {
     data class Review(val draft: ReceiptDraft) : ScanState
 }
 
-data class PendingInvite(val groupName: String, val code: String) {
-    val link: String get() = "dibillsion://join/$code"
+/** [webLink] is the server's `https://…/join/<code>`: clickable in chats, opens the app. */
+data class PendingInvite(val groupName: String, val code: String, val webLink: String? = null) {
+    val link: String get() = webLink ?: "dibillsion://join/$code"
 }
 
 /**
@@ -177,10 +178,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val t = transportOrExplain() ?: return@launchCore
         val d = _state.value.detail ?: return@launchCore
         if (!core.isShared(d.group.id)) core.shareGroup(t, d.group.id)
-        val code = core.inviteCode(t, d.group.id)
+        val invite = core.invite(t, d.group.id)
         loadDetail(d.group.id)
         loadGroups()
-        _state.update { it.copy(invite = PendingInvite(d.group.name, code)) }
+        _state.update { it.copy(invite = PendingInvite(d.group.name, invite.code, invite.link)) }
     }
 
     fun inviteShown() = _state.update { it.copy(invite = null) }

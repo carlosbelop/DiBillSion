@@ -26,6 +26,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="dibillsion" android:host="join" />
             </intent-filter>
+            <!-- https invite links (App Links: the site's assetlinks.json lists this app). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="${siteHost}" android:pathPrefix="/join/" />
+            </intent-filter>
         </activity>
         <!-- Lets the camera app write the receipt photo into our cache. -->
         <provider

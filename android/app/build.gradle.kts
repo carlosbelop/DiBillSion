@@ -35,6 +35,8 @@ android {
         versionCode = commitCount
         versionName = "0.1.$commitCount"
         manifestPlaceholders["appLabel"] = "@string/app_name"
+        // Host of the https invite links (the server's site), opened by the app when installed.
+        manifestPlaceholders["siteHost"] = providers.gradleProperty("dibill.siteHost").getOrElse("dibillsion.com")
     }
 
     signingConfigs {

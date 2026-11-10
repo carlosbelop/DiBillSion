@@ -144,6 +144,9 @@ pub struct PullResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Invite {
     pub code: String,
+    /// The shareable `https://…/join/<code>` link, when the server has a public site.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
 }
 
 /// `POST /v1/invites/{code}/join`

@@ -8,6 +8,7 @@ at the end; builds already uploaded are not affected by that.
   scripts/asc.py create-cert <csr.pem> <out-cert.pem>      prints the certificate id
   scripts/asc.py create-profile <bundle-id> <cert-id> <out.mobileprovision>
                                                            prints "<profile id> <UUID>"
+  scripts/asc.py ensure-capability <bundle-id> <TYPE>       e.g. ASSOCIATED_DOMAINS (idempotent)
   scripts/asc.py revoke-cert <cert-id>
   scripts/asc.py delete-profile <profile-id>
 """
@@ -83,11 +84,31 @@ def create_cert(csr_path: str, out: str) -> None:
     print(data["id"])
 
 
-def create_profile(bundle: str, cert_id: str, out: str) -> None:
+def bundle_resource_id(bundle: str) -> str:
     ids = call("GET", f"/bundleIds?filter[identifier]={bundle}")["data"]
     bundle_id = next((b["id"] for b in ids if b["attributes"]["identifier"] == bundle), None)
     if bundle_id is None:
         sys.exit(f"bundle id {bundle} is not registered")
+    return bundle_id
+
+
+def ensure_capability(bundle: str, capability: str) -> None:
+    """Turns a capability on for the App ID if it isn't yet; profiles made afterwards include it."""
+    bundle_id = bundle_resource_id(bundle)
+    have = call("GET", f"/bundleIds/{bundle_id}/bundleIdCapabilities")["data"]
+    if any(c["attributes"]["capabilityType"] == capability for c in have):
+        print(f"{capability} already on")
+        return
+    call("POST", "/bundleIdCapabilities", {"data": {
+        "type": "bundleIdCapabilities",
+        "attributes": {"capabilityType": capability},
+        "relationships": {"bundleId": {"data": {"type": "bundleIds", "id": bundle_id}}},
+    }})
+    print(f"{capability} turned on")
+
+
+def create_profile(bundle: str, cert_id: str, out: str) -> None:
+    bundle_id = bundle_resource_id(bundle)
     data = call("POST", "/profiles", {"data": {
         "type": "profiles",
         "attributes": {"name": f"DiBillSion CI {int(time.time())}", "profileType": "IOS_APP_STORE"},
@@ -109,6 +130,8 @@ if __name__ == "__main__":
             create_cert(csr, out)
         case ["create-profile", bundle, cert_id, out]:
             create_profile(bundle, cert_id, out)
+        case ["ensure-capability", bundle, capability]:
+            ensure_capability(bundle, capability)
         case ["revoke-cert", cert_id]:
             call("DELETE", f"/certificates/{cert_id}")
         case ["delete-profile", profile_id]:
