@@ -136,6 +136,13 @@ fun AddExpenseScreen(d: GroupDetail, vm: AppViewModel, onDone: () -> Unit) {
             Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            OutlinedTextField(
+                title, { title = it },
+                label = { Text(stringResource(R.string.title)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                modifier = Modifier.fillMaxWidth(),
+            )
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     amount, { amount = it },
@@ -169,13 +176,6 @@ fun AddExpenseScreen(d: GroupDetail, vm: AppViewModel, onDone: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            OutlinedTextField(
-                title, { title = it },
-                label = { Text(stringResource(R.string.title)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                modifier = Modifier.fillMaxWidth(),
-            )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 PayerPicker(d, active.map { it.id to it.displayName }, payer, { payer = it }, Modifier.weight(1f))
                 OutlinedButton(onClick = { pickingDate = true }) {

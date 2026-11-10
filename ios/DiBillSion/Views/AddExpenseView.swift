@@ -49,7 +49,7 @@ struct AddExpenseView: View {
                     HStack {
                         TextField("Amount", text: $amount)
                             .keyboardType(.decimalPad)
-                            .font(.title2.monospacedDigit())
+                            .monospacedDigit()
                         TextField("Currency", text: $currency)
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
