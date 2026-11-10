@@ -193,7 +193,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Joins from an invite link or a bare code, then opens the group. */
-    fun join(linkOrCode: String) = launchCore {
+    fun join(linkOrCode: String) = launchCore(joining = true) {
         val t = transportOrExplain() ?: return@launchCore
         val code = linkOrCode.trim().substringAfterLast('/').substringBefore('?')
         val id = core.joinGroup(t, code)
@@ -408,14 +408,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         syncQuietly()
     }
 
-    private fun launchCore(block: () -> Unit) {
+    /** [joining]: a "not found" from the server means the invite, not a group. */
+    private fun launchCore(joining: Boolean = false, block: () -> Unit) {
         viewModelScope.launch {
             val error = withContext(Dispatchers.IO) {
                 try {
                     block()
                     null
                 } catch (e: CoreException) {
-                    describe(e)
+                    describe(e, joining)
                 }
             }
             if (error != null) _state.update { it.copy(error = error) }
@@ -423,7 +424,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** A message for the user in their language; English detail goes to the log only. */
-    private fun describe(e: CoreException): String {
+    private fun describe(e: CoreException, joining: Boolean = false): String {
         val app = getApplication<Application>()
         val res = when (e) {
             is CoreException.NotFound -> R.string.err_not_found
@@ -438,7 +439,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             is CoreException.Storage -> R.string.err_storage
             is CoreException.Offline -> R.string.err_offline
             is CoreException.Server -> when (e.code) {
-                "not_found" -> R.string.err_invite_invalid
+                // Outside joining, a shared group the server doesn't have (e.g. after a move).
+                "not_found" -> if (joining) R.string.err_invite_invalid else R.string.err_group_not_on_server
                 "forbidden" -> R.string.err_forbidden
                 "receipts_disabled" -> R.string.err_receipts_disabled
                 "limit_reached" -> R.string.err_limit_reached
