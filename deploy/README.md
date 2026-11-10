@@ -12,7 +12,11 @@ Raspberry Pi 4B:
 - `mkdir -p ~/dibillsion` and create `~/dibillsion/.env` from [`.env.example`](.env.example):
   `POSTGRES_PASSWORD=$(openssl rand -hex 24)`.
 
-A VPS (e.g. Hetzner CAX11, also ARM64) is the same after installing Docker.
+A VPS is the same after installing Docker. The beta runs on a Hetzner CX23 (x86, Ubuntu 24.04),
+prepared once as root: a sudo user with the SSH key (`carlosbl`), `PermitRootLogin no` and
+`PasswordAuthentication no` in `/etc/ssh/sshd_config.d/`, `ufw` allowing only SSH, 80/tcp, 443/tcp and
+443/udp, Docker from get.docker.com, unattended upgrades (Ubuntu's default). Deploy it with
+`DIBILL_BUILD=zig DIBILL_PLATFORM=linux/amd64 DIBILL_HOST=carlosbl@<ip> deploy/deploy.sh`.
 
 ## 2. Deploy (from the dev machine)
 
@@ -29,7 +33,20 @@ The server listens only on `127.0.0.1:8080` of the host; nothing is opened on th
 
 ## 3. HTTPS for the phones
 
-Pick one; both need no open ports and give a valid certificate.
+**A VPS with its own domain (what the beta uses):** point a DNS `A` record (e.g. `api.example.com`,
+"DNS only" if the DNS is on Cloudflare) at the server's IP, open ports 80 and 443, and add to the
+host's `.env`:
+
+```bash
+COMPOSE_FILE=compose.yaml:compose.https.yaml
+DIBILL_DOMAIN=api.example.com
+```
+
+`deploy.sh` then also starts Caddy ([`compose.https.yaml`](compose.https.yaml), [`Caddyfile`](Caddyfile)),
+which gets and renews a Let's Encrypt certificate by itself and redirects HTTP to HTTPS.
+
+**Without a public IP or domain (the Pi at home)**, pick one; both need no open ports and give a
+valid certificate.
 
 - **Tailscale Funnel** (free, no domain needed). On the host:
   `curl -fsSL https://tailscale.com/install.sh | sh`, `sudo tailscale up`, then

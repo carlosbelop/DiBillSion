@@ -38,7 +38,8 @@ else
 fi
 
 echo "==> copying the stack to $host:$remote_dir"
-scp "$root/deploy/compose.yaml" "$root/deploy/backup.sh" "$host:$remote_dir/"
+scp "$root/deploy/compose.yaml" "$root/deploy/compose.https.yaml" "$root/deploy/Caddyfile" \
+    "$root/deploy/backup.sh" "$host:$remote_dir/"
 ssh "$host" "test -f $remote_dir/.env" || {
     echo "!! $host:$remote_dir/.env is missing: copy deploy/.env.example there and set POSTGRES_PASSWORD" >&2
     exit 1

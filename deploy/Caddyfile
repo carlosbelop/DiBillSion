@@ -1,0 +1,12 @@
+# HTTPS in front of dibill-server on a host with its own domain (compose.https.yaml).
+# Caddy gets and renews the Let's Encrypt certificate for DIBILL_DOMAIN by itself.
+{$DIBILL_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy server:8080
+	# Access log: request lines only. Caddy redacts the Authorization header by default
+	# and never logs bodies (receipt images).
+	log {
+		output stdout
+		format console
+	}
+}
