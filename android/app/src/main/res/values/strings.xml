@@ -163,4 +163,18 @@
     <string name="receipt_photo">Receipt photo</string>
     <string name="receipt_photo_unavailable">The receipt photo isn’t available yet. It appears once the phone that took it syncs.</string>
     <string name="close">Close</string>
+    <string name="split">Split</string>
+    <string name="split_equal">Equal</string>
+    <string name="split_parts">Parts</string>
+    <string name="split_percent">%</string>
+    <string name="split_amounts">Amounts</string>
+    <string name="error_split_value">Use whole numbers for parts, and amounts or percentages with up to two decimals.</string>
+    <string name="error_percent_left">%1$s %% still to assign.</string>
+    <string name="error_percent_over">%1$s %% too much.</string>
+    <string name="error_amount_left">%1$s still to assign.</string>
+    <string name="error_amount_over">%1$s too much.</string>
+    <string name="split_item">Split…</string>
+    <string name="split_item_title">Split “%1$s”</string>
+    <string name="custom_split">Custom split</string>
+    <string name="apply">Apply</string>
 </resources>

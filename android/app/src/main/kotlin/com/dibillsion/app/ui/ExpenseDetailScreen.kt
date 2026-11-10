@@ -59,6 +59,13 @@ import com.dibillsion.app.GroupDetail
 import com.dibillsion.app.Money
 import com.dibillsion.app.R
 import com.dibillsion.core.TransactionDto
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateMapOf
+import com.dibillsion.app.Split
+import com.dibillsion.app.SplitMode
+import com.dibillsion.core.ItemDto
+import com.dibillsion.core.MemberDto
 import com.dibillsion.core.TransactionKindDto
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -73,6 +80,7 @@ import java.time.format.FormatStyle
 fun ExpenseDetailScreen(d: GroupDetail, t: TransactionDto, vm: AppViewModel, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
     var deleting by remember { mutableStateOf(false) }
+    var splitting by remember { mutableStateOf<Int?>(null) }
     val id = t.id ?: return
     val exponent = vm.exponentOf(t.currency) ?: d.exponent
     val fmt = { minor: Long -> Money.format(minor, exponent, t.currency) }
@@ -89,6 +97,24 @@ fun ExpenseDetailScreen(d: GroupDetail, t: TransactionDto, vm: AppViewModel, onC
             },
             onDismiss = { deleting = false },
         )
+    }
+    splitting?.let { index ->
+        t.items.getOrNull(index)?.let { item ->
+            ItemSplitDialog(
+                title = item.label ?: t.title,
+                item = item,
+                people = d.members.filter { it.active || item.shares.any { s -> s.memberId == it.id } },
+                exponent = exponent,
+                currency = t.currency,
+                vm = vm,
+                onApply = { parts ->
+                    val current = item.shares.associate { it.memberId to (it.parts ?: 0u) }
+                    vm.setItemParts(id, index, parts, current)
+                    splitting = null
+                },
+                onDismiss = { splitting = null },
+            )
+        }
     }
     Scaffold(
         topBar = {
@@ -168,17 +194,26 @@ fun ExpenseDetailScreen(d: GroupDetail, t: TransactionDto, vm: AppViewModel, onC
                                 )
                             }
                         }
-                        if (byParts && inItem.size > 1 && parts.isNotEmpty()) {
-                            Text(
-                                // Cents left over go to some people, so a range when they differ.
-                                stringResource(
-                                    R.string.each_pays,
-                                    if (parts.min() == parts.max()) fmt(parts.max()) else fmt(parts.min()) + "–" + fmt(parts.max()),
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        } else if (!byParts) {
+                        val even = item.shares.map { it.parts }.distinct().size <= 1
+                        if (byParts) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    when {
+                                        !even -> stringResource(R.string.custom_split)
+                                        inItem.size > 1 && parts.isNotEmpty() -> stringResource(
+                                            R.string.each_pays,
+                                            if (parts.min() == parts.max()) fmt(parts.max()) else fmt(parts.min()) + "–" + fmt(parts.max()),
+                                        )
+                                        else -> ""
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                TextButton(onClick = { splitting = index }) { Text(stringResource(R.string.split_item)) }
+                            }
+                        }
+                        if (!byParts) {
                             Text(
                                 stringResource(R.string.exact_amounts_item),
                                 style = MaterialTheme.typography.bodySmall,
@@ -273,4 +308,71 @@ private fun ReceiptPhoto(imageId: String, vm: AppViewModel) {
             }
         }
     }
+}
+
+/** Equal, parts or percentage for one item; applied per person (ADR 0009). */
+@Composable
+private fun ItemSplitDialog(
+    title: String,
+    item: ItemDto,
+    people: List<MemberDto>,
+    exponent: Int,
+    currency: String,
+    vm: AppViewModel,
+    onApply: (Map<String, UInt>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val even = item.shares.map { it.parts }.distinct().size <= 1
+    var mode by remember { mutableStateOf(if (even) SplitMode.EQUAL else SplitMode.PARTS) }
+    var among by remember { mutableStateOf(item.shares.map { it.memberId }.toSet()) }
+    val values = remember {
+        mutableStateMapOf<String, String>().apply {
+            if (!even) {
+                // Shown in their smallest form: 5000/3000/2000 reads as 5/3/2.
+                val all = item.shares.mapNotNull { it.parts?.toLong() }
+                val g = all.fold(0L) { acc, v -> java.math.BigInteger.valueOf(acc).gcd(java.math.BigInteger.valueOf(v)).toLong() }
+                    .coerceAtLeast(1)
+                item.shares.forEach { s -> s.parts?.let { put(s.memberId, (it.toLong() / g).toString()) } }
+            }
+        }
+    }
+    val split = Split.shares(mode, people.map { it.id }, among, values, item.totalMinor, exponent)
+    val preview = if (split.problem == null) vm.previewShares(item.totalMinor, split.shares) else emptyList()
+    val shareOf = split.shares.map { it.memberId }.zip(preview).toMap()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.split_item_title, title), maxLines = 2) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SplitModeSelector(mode, withAmounts = false) { mode = it }
+                people.forEach { m ->
+                    SplitRow(
+                        name = m.displayName,
+                        id = m.id,
+                        mode = mode,
+                        included = m.id in among,
+                        onIncluded = { on -> among = if (on) among + m.id else among - m.id },
+                        value = values[m.id].orEmpty(),
+                        onValue = { values[m.id] = it },
+                        share = shareOf[m.id]?.let { Money.format(it, exponent, currency) },
+                        unit = null,
+                        compact = true,
+                    )
+                }
+                splitProblemText(split.problem, exponent, currency)?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = split.problem == null,
+                onClick = {
+                    val chosen = split.shares.associate { it.memberId to (it.parts ?: 0u) }
+                    onApply(people.associate { it.id to (chosen[it.id] ?: 0u) })
+                },
+            ) { Text(stringResource(R.string.apply)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }

@@ -162,4 +162,18 @@
     <string name="receipt_photo">Foto del ticket</string>
     <string name="receipt_photo_unavailable">La foto del ticket aún no está disponible. Aparecerá cuando sincronice el teléfono que la hizo.</string>
     <string name="close">Cerrar</string>
+    <string name="split">Repartir</string>
+    <string name="split_equal">Igual</string>
+    <string name="split_parts">Partes</string>
+    <string name="split_percent">%</string>
+    <string name="split_amounts">Importes</string>
+    <string name="error_split_value">Usa números enteros para las partes, e importes o porcentajes con hasta dos decimales.</string>
+    <string name="error_percent_left">Falta repartir un %1$s %%.</string>
+    <string name="error_percent_over">Te pasas un %1$s %%.</string>
+    <string name="error_amount_left">Faltan %1$s por repartir.</string>
+    <string name="error_amount_over">Sobran %1$s.</string>
+    <string name="split_item">Repartir…</string>
+    <string name="split_item_title">Repartir «%1$s»</string>
+    <string name="custom_split">Reparto personalizado</string>
+    <string name="apply">Aplicar</string>
 </resources>

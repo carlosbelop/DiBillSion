@@ -405,6 +405,26 @@ impl Core {
         )?)
     }
 
+    /// Sets how many parts `member_id` takes of the item at `item_index` (0 = leaves it), for
+    /// uneven splits of an item such as 2 of 3 beers or a percentage in hundredths (ADR 0009).
+    ///
+    /// # Errors
+    /// As [`Core::set_item_member`].
+    pub fn set_item_parts(
+        &self,
+        transaction_id: String,
+        item_index: u32,
+        member_id: String,
+        parts: u32,
+    ) -> Result<(), CoreError> {
+        Ok(self.store().set_item_share(
+            TransactionId(uuid(&transaction_id)?),
+            item_index,
+            MemberId(uuid(&member_id)?),
+            parts,
+        )?)
+    }
+
     /// # Errors
     /// [`CoreError::NotFound`].
     pub fn delete_transaction(&self, transaction_id: String) -> Result<(), CoreError> {
@@ -730,6 +750,11 @@ mod tests {
                 receipt_image_id: None,
             })
             .unwrap();
+        core.set_item_parts(id.clone(), 0, a.clone(), 3).unwrap();
+        let first = &core.transactions(g.clone()).unwrap()[0].items[0];
+        let parts: Vec<Option<u32>> = first.shares.iter().map(|s| s.parts).collect();
+        assert_eq!(parts, [Some(3), Some(1)]);
+        core.set_item_parts(id.clone(), 0, a.clone(), 1).unwrap();
         core.set_item_member(id.clone(), 1, b.clone(), false)
             .unwrap();
         let t = &core.transactions(g.clone()).unwrap()[0];
