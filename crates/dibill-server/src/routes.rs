@@ -1,10 +1,12 @@
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use deadpool_postgres::GenericClient;
 use dibill_proto::{
-    DeviceToken, EntityKind, Invite, Joined, MAX_PULL_OPS, MAX_PUSH_OPS, PullQuery, PullResult,
-    PushOps, PushResult, RegisterDevice, SeqOp, WireOp,
+    Attachment, DeviceToken, EntityKind, Invite, Joined, MAX_PULL_OPS, MAX_PUSH_OPS,
+    MAX_RECEIPT_BYTES, PullQuery, PullResult, PushOps, PushResult, RegisterDevice, SeqOp, WireOp,
 };
 use tokio_postgres::Row;
 use uuid::Uuid;
@@ -313,4 +315,60 @@ pub async fn join(
         )
         .await?;
     Ok(Json(Joined { group_id: group }))
+}
+
+/// `PUT /v1/groups/{id}/attachments/{attachment}`: stores a receipt photo for the group
+/// (members only). Idempotent: uploading the same id again keeps the first copy.
+pub async fn put_attachment(
+    State(s): State<AppState>,
+    Device(me): Device,
+    Path((group, attachment)): Path<(Uuid, Uuid)>,
+    Body(req): Body<Attachment>,
+) -> Result<StatusCode, AppError> {
+    if !matches!(req.mime.as_str(), "image/jpeg" | "image/png" | "image/webp") {
+        return Err(AppError::Invalid(
+            "the image must be JPEG, PNG or WebP".into(),
+        ));
+    }
+    let bytes = STANDARD
+        .decode(req.data_base64.as_bytes())
+        .map_err(|_| AppError::Invalid("data_base64 is not valid base64".into()))?;
+    if bytes.is_empty() {
+        return Err(AppError::Invalid("empty image".into()));
+    }
+    if bytes.len() > MAX_RECEIPT_BYTES {
+        return Err(AppError::TooLarge(format!(
+            "the image is over {MAX_RECEIPT_BYTES} bytes"
+        )));
+    }
+    let db = s.db.get().await?;
+    require_member(&db, group, me).await?;
+    db.execute(
+        "INSERT INTO attachments (group_id, id, mime, bytes, created_by) VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (group_id, id) DO NOTHING",
+        &[&group, &attachment, &req.mime, &bytes, &me],
+    )
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `GET /v1/groups/{id}/attachments/{attachment}` (members only).
+pub async fn get_attachment(
+    State(s): State<AppState>,
+    Device(me): Device,
+    Path((group, attachment)): Path<(Uuid, Uuid)>,
+) -> Result<Json<Attachment>, AppError> {
+    let db = s.db.get().await?;
+    require_member(&db, group, me).await?;
+    let row = db
+        .query_opt(
+            "SELECT mime, bytes FROM attachments WHERE group_id = $1 AND id = $2",
+            &[&group, &attachment],
+        )
+        .await?
+        .ok_or(AppError::NotFound("no such attachment"))?;
+    Ok(Json(Attachment {
+        mime: row.get(0),
+        data_base64: STANDARD.encode(row.get::<_, Vec<u8>>(1)),
+    }))
 }

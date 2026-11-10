@@ -1,8 +1,11 @@
 package com.dibillsion.app
 
 import android.app.Application
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Log
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibillsion.core.BalancesDto
@@ -87,6 +90,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _state = MutableStateFlow(UiState())
     private var scanJob: Job? = null
+
+    /** The JPEG sent for the scan in progress, attached to the expense when it's saved (ADR 0010). */
+    @Volatile private var scannedPhoto: ByteArray? = null
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     init {
@@ -298,7 +304,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         scanJob = viewModelScope.launch {
             val outcome: Any = withContext(Dispatchers.IO) {
                 try {
-                    core.scanReceipt(t, d.group.id, ReceiptImage.load(app, uri), "image/jpeg")
+                    val photo = ReceiptImage.load(app, uri)
+                    scannedPhoto = photo
+                    core.scanReceipt(t, d.group.id, photo, "image/jpeg")
                 } catch (e: CoreException) {
                     describe(e)
                 } catch (e: IOException) {
@@ -335,6 +343,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Leaves the scan: a reading in flight is dropped when it comes back. */
     fun closeScan() {
         scanJob?.cancel()
+        scannedPhoto = null
         _state.update { it.copy(scan = null) }
     }
 
@@ -358,9 +367,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             baseTotalMinor = null,
         )
         // The draft stays open if saving fails, so nothing typed is lost.
+        val photo = scannedPhoto
         inGroup {
-            core.saveTransaction(tx)
+            val id = core.saveTransaction(tx)
+            photo?.let { core.setReceiptImage(id, it, "image/jpeg") }
+            scannedPhoto = null
             _state.update { it.copy(scan = null) }
+        }
+    }
+
+    /** A receipt photo: from this phone, else downloaded once from the server. Null if it can't be had. */
+    suspend fun receiptImage(imageId: String): ImageBitmap? = withContext(Dispatchers.IO) {
+        try {
+            val image = core.receiptImageLocal(imageId) ?: transport?.let { core.receiptImage(it, imageId) }
+            image?.bytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
+        } catch (e: CoreException) {
+            Log.i("DiBillSion", "receipt photo unavailable", e)
+            null
         }
     }
 

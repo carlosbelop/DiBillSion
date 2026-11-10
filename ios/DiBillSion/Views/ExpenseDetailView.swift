@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// One expense or income with its items (ADR 0009): anyone can add or remove people on each
 /// item, and the per-person totals follow, computed by the core.
@@ -44,6 +45,10 @@ struct ExpenseDetailView: View {
                 .padding(.vertical, 4)
             } footer: {
                 Text("Tap people to add or remove them from an item. Everyone in the group sees the change.")
+            }
+
+            if let photo = t.receiptImageId {
+                Section { ReceiptPhotoView(imageId: photo) }
             }
 
             ForEach(Array(t.items.enumerated()), id: \.offset) { index, item in
@@ -121,6 +126,84 @@ struct ExpenseDetailView: View {
             // Cents left over go to some people, so a range when they differ.
             Text("\(low == high ? fmt(high) : fmt(low) + "–" + fmt(high)) each")
                 .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// The receipt photo: a thumbnail that opens full screen, where it can be pinched and moved.
+private struct ReceiptPhotoView: View {
+    let imageId: String
+    @Environment(AppModel.self) private var model
+    @State private var image: UIImage?
+    @State private var failed = false
+    @State private var open = false
+
+    var body: some View {
+        Button { if image != nil { open = true } } label: {
+            ZStack {
+                if let image {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else if failed {
+                    Text("The receipt photo isn’t available yet. It appears once the phone that took it syncs.")
+                        .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center).padding()
+                } else {
+                    ProgressView()
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 160)
+            .clipped()
+        }
+        .buttonStyle(.plain)
+        .listRowInsets(EdgeInsets())
+        .accessibilityLabel("Receipt photo")
+        .task(id: imageId) {
+            image = await model.receiptImage(imageId).flatMap(UIImage.init(data:))
+            failed = image == nil
+        }
+        .fullScreenCover(isPresented: $open) {
+            if let image { ZoomableImage(image: image) { open = false } }
+        }
+    }
+}
+
+private struct ZoomableImage: View {
+    let image: UIImage
+    let close: () -> Void
+    @State private var scale: CGFloat = 1
+    @State private var lastScale: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .scaleEffect(scale)
+                .offset(offset)
+                .gesture(
+                    MagnifyGesture()
+                        .onChanged { scale = min(max(lastScale * $0.magnification, 1), 6) }
+                        .onEnded { _ in
+                            lastScale = scale
+                            if scale == 1 { offset = .zero; lastOffset = .zero }
+                        }
+                        .simultaneously(with: DragGesture()
+                            .onChanged { v in
+                                guard scale > 1 else { return }
+                                offset = CGSize(width: lastOffset.width + v.translation.width,
+                                                height: lastOffset.height + v.translation.height)
+                            }
+                            .onEnded { _ in lastOffset = offset })
+                )
+                .accessibilityLabel("Receipt photo")
+            Button(action: close) {
+                Image(systemName: "xmark.circle.fill").font(.title).foregroundStyle(.white.opacity(0.85))
+            }
+            .padding()
+            .accessibilityLabel("Close")
         }
     }
 }

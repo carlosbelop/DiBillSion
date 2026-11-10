@@ -155,6 +155,15 @@ pub struct Joined {
     pub group_id: Uuid,
 }
 
+/// `PUT`/`GET /v1/groups/{id}/attachments/{attachment}`: a receipt photo (ADR 0010).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Attachment {
+    /// `image/jpeg`, `image/png` or `image/webp`.
+    pub mime: String,
+    /// Standard base64, at most [`MAX_RECEIPT_BYTES`] decoded.
+    pub data_base64: String,
+}
+
 /// `POST /v1/receipts/scan` (ADR 0008).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScanReceipt {

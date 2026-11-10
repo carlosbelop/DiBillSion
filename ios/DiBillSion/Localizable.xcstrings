@@ -434,6 +434,16 @@
         }
       }
     },
+    "Close": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerrar"
+          }
+        }
+      }
+    },
     "Couldn’t open that image. Try another one.": {
       "localizations": {
         "es": {
@@ -1110,6 +1120,16 @@
         }
       }
     },
+    "Receipt photo": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foto del ticket"
+          }
+        }
+      }
+    },
     "Receipt scanning isn’t available on this server yet.": {
       "localizations": {
         "es": {
@@ -1356,6 +1376,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "El enlace de invitación está desactivado. Si invitas de nuevo se crea uno nuevo."
+          }
+        }
+      }
+    },
+    "The receipt photo isn’t available yet. It appears once the phone that took it syncs.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La foto del ticket aún no está disponible. Aparecerá cuando sincronice el teléfono que la hizo."
           }
         }
       }

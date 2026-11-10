@@ -30,6 +30,7 @@ pub use site::Site;
 const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0001_sync.sql"),
     include_str!("../migrations/0002_receipts.sql"),
+    include_str!("../migrations/0003_attachments.sql"),
 ];
 
 /// Arbitrary key for the advisory lock that serializes concurrent migrations.
@@ -112,6 +113,13 @@ pub fn app(db: Pool, receipts: Receipts, site: Site) -> Router {
             post(routes::create_invite).delete(routes::delete_invite),
         )
         .route("/invites/{code}/join", post(routes::join))
+        .route(
+            "/groups/{id}/attachments/{attachment}",
+            put(routes::put_attachment)
+                .get(routes::get_attachment)
+                // Base64 grows the image by a third.
+                .layer(DefaultBodyLimit::max(MAX_RECEIPT_BYTES / 3 * 4 + 64 * 1024)),
+        )
         .route(
             "/receipts/scan",
             // Base64 grows the image by a third.

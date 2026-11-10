@@ -60,6 +60,8 @@ final class AppModel {
     /// A receipt being read or reviewed.
     private(set) var scan: ScanState?
     private var scanTask: Task<Void, Never>?
+    /// The JPEG sent for the scan in progress, attached to the expense when saved (ADR 0010).
+    private var scannedPhoto: Data?
 
     private let core: Core
     /// Nil when this build has no server.
@@ -236,6 +238,7 @@ final class AppModel {
         guard let transport = transportOrExplain(), let d = detail else { return }
         scan = .reading
         scanTask?.cancel()
+        scannedPhoto = jpeg
         let groupId = d.group.id
         scanTask = Task {
             let scanned = await run { core in
@@ -270,6 +273,7 @@ final class AppModel {
     func closeScan() {
         scanTask?.cancel()
         scanTask = nil
+        scannedPhoto = nil
         scan = nil
     }
 
@@ -282,12 +286,27 @@ final class AppModel {
         let items = draft.items(exponent: exp, memberOrder: d.members.map(\.id))
         let title = draft.title.trimmingCharacters(in: .whitespaces)
         let rate = foreign ? Money.parseRate(draft.rate) : nil
+        let photo = scannedPhoto
         await inGroup { core, d in
-            _ = try core.saveTransaction(t: TransactionDto(
+            let id = try core.saveTransaction(t: TransactionDto(
                 id: nil, groupId: d.group.id, kind: .expense, title: title, payerId: draft.payerId,
                 currency: draft.currency, fxRate: rate, dateDays: draft.dateDays, items: items,
                 baseTotalMinor: nil))
-        } onSuccess: { scan = nil }
+            if let photo { _ = try core.setReceiptImage(transactionId: id, image: photo, mime: "image/jpeg") }
+        } onSuccess: {
+            scannedPhoto = nil
+            scan = nil
+        }
+    }
+
+    /// A receipt photo: from this phone, else downloaded once from the server; nil if unavailable.
+    func receiptImage(_ id: String) async -> Data? {
+        let transport = self.transport
+        return await run(quiet: true) { core -> Data? in
+            if let local = try core.receiptImageLocal(imageId: id) { return local.bytes }
+            guard let transport else { return nil }
+            return try core.receiptImage(transport: transport, imageId: id).bytes
+        } ?? nil
     }
 
     /// What each member owes for the draft, summed over its items exactly as the core splits them.

@@ -663,6 +663,58 @@ mod sync {
     }
 
     #[test]
+    fn receipt_photos_are_named_by_a_synced_field_and_kept_locally() {
+        let mut t = trip();
+        let e = expense(t.group, t.a, 900, &[t.a, t.b]);
+        t.store.save_transaction(&e).unwrap();
+        let photo = t
+            .store
+            .set_receipt_image(e.id, "image/jpeg", b"jpeg")
+            .unwrap();
+        assert_eq!(t.store.receipt_images(t.group).unwrap()[&e.id], photo);
+        let (group, bytes) = t.store.attachment(photo).unwrap();
+        assert_eq!(
+            (group, bytes),
+            (Some(t.group), Some(("image/jpeg".into(), b"jpeg".to_vec())))
+        );
+        assert_eq!(t.store.pending_attachments(t.group).unwrap().len(), 1);
+        t.store.mark_attachment_uploaded(photo).unwrap();
+        assert_eq!(t.store.pending_attachments(t.group).unwrap(), []);
+
+        // Editing the expense keeps its photo.
+        t.store
+            .save_transaction(&Transaction {
+                title: "Renamed".into(),
+                ..e.clone()
+            })
+            .unwrap();
+        assert_eq!(t.store.receipt_images(t.group).unwrap()[&e.id], photo);
+
+        // Another device learns which photo, not its bytes, until it downloads them.
+        let other = replica_of(&t);
+        assert_eq!(other.receipt_images(t.group).unwrap()[&e.id], photo);
+        assert_eq!(other.attachment(photo).unwrap(), (Some(t.group), None));
+        other
+            .cache_attachment(photo, t.group, "image/jpeg", b"jpeg")
+            .unwrap();
+        assert_eq!(other.attachment(photo).unwrap().1.unwrap().1, b"jpeg");
+        assert_eq!(
+            other.pending_attachments(t.group).unwrap(),
+            [],
+            "downloaded counts as uploaded"
+        );
+
+        // Forgetting a shared group makes its photos pending again.
+        t.store.forget_shared(t.group).unwrap();
+        assert_eq!(t.store.pending_attachments(t.group).unwrap().len(), 1);
+        assert!(matches!(
+            t.store
+                .set_receipt_image(TransactionId::new(), "image/jpeg", b"x"),
+            Err(StoreError::NotFound)
+        ));
+    }
+
+    #[test]
     fn ops_survive_the_wire() {
         let mut t = trip();
         let e = expense(t.group, t.a, 1000, &[t.a, t.b]);

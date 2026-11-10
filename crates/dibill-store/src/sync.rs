@@ -56,7 +56,8 @@ impl Entity {
 
 /// A synced field. Values are JSON: strings for names, kinds, currencies and
 /// statuses, `null` or a string for the emoji, a boolean for `Archived`, the
-/// whole transaction for `Body`, and a number of parts for `Share`.
+/// whole transaction for `Body`, a number of parts for `Share`, and an attachment id (or `null`)
+/// for `Attachment`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Field {
     Name,
@@ -73,6 +74,8 @@ pub enum Field {
         item: u32,
         member: MemberId,
     },
+    /// The transaction's receipt photo (ADR 0010), independent of the body so edits keep it.
+    Attachment,
 }
 
 impl Field {
@@ -85,6 +88,7 @@ impl Field {
             Self::Archived => "archived".into(),
             Self::Status => "status".into(),
             Self::Body => "body".into(),
+            Self::Attachment => "attachment".into(),
             Self::Share { item, member } => format!("share:{item}:{}", member.0),
         }
     }
@@ -107,6 +111,7 @@ impl Field {
             "archived" => Self::Archived,
             "status" => Self::Status,
             "body" => Self::Body,
+            "attachment" => Self::Attachment,
             _ => return Err(StoreError::Corrupt(format!("op field {s:?}"))),
         })
     }
@@ -149,6 +154,7 @@ impl SyncOp {
                 parse::<Body>(value).is_some_and(|b| b.into_transaction(id, self.group).is_ok())
             }
             (Entity::Transaction(_), Field::Share { .. }) => parse::<u32>(value).is_some(),
+            (Entity::Transaction(_), Field::Attachment) => parse::<Option<Uuid>>(value).is_some(),
             _ => false,
         }
     }
@@ -635,8 +641,12 @@ pub(crate) fn materialize_transaction(
         conn.execute("DELETE FROM transactions WHERE id = ?1", [id.0])?;
         return Ok(());
     };
+    let attachment = state
+        .as_ref()
+        .and_then(|s| field::<Option<Uuid>>(s, Field::Attachment))
+        .flatten();
     let deleted = state.is_some_and(|s| s.is_deleted());
-    write_rows(conn, &t, deleted)
+    write_rows(conn, &t, deleted, attachment)
 }
 
 /// Applies the `Share` fields newer than the body (ADR 0009), in field order:
@@ -688,13 +698,19 @@ fn apply_shares(
     }
 }
 
-fn write_rows(conn: &Connection, t: &Transaction, deleted: bool) -> Result<()> {
+fn write_rows(
+    conn: &Connection,
+    t: &Transaction,
+    deleted: bool,
+    attachment: Option<Uuid>,
+) -> Result<()> {
     let now = now_ms();
     conn.prepare_cached(
-        "INSERT INTO transactions (id, group_id, kind, title, payer_id, currency, fx_rate, date_days, created_at, updated_at, deleted_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, CASE WHEN ?11 THEN ?10 END)
+        "INSERT INTO transactions (id, group_id, kind, title, payer_id, currency, fx_rate, date_days, created_at, updated_at, deleted_at, attachment_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, CASE WHEN ?11 THEN ?10 END, ?12)
          ON CONFLICT (id) DO UPDATE SET kind = ?3, title = ?4, payer_id = ?5, currency = ?6, fx_rate = ?7,
-             date_days = ?8, updated_at = ?10, deleted_at = CASE WHEN ?11 THEN coalesce(deleted_at, ?10) END",
+             date_days = ?8, updated_at = ?10, deleted_at = CASE WHEN ?11 THEN coalesce(deleted_at, ?10) END,
+             attachment_id = ?12",
     )?
     .execute(params![
         t.id.0,
@@ -707,7 +723,8 @@ fn write_rows(conn: &Connection, t: &Transaction, deleted: bool) -> Result<()> {
         t.date_days,
         uuid_ms(t.id.0),
         now,
-        deleted
+        deleted,
+        attachment
     ])?;
     conn.execute("DELETE FROM items WHERE transaction_id = ?1", [t.id.0])?;
     let mut item_stmt = conn.prepare_cached(

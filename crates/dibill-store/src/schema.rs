@@ -101,6 +101,19 @@ const MIGRATIONS: &[&str] = &[
         cursor   INTEGER NOT NULL DEFAULT 0 CHECK (cursor >= 0)
     ) STRICT;
     ",
+    // v5: receipt photos (ADR 0010). The transaction's `attachment` field names one; the bytes
+    // live here, cached when downloaded, `uploaded` once the server has them.
+    "
+    ALTER TABLE transactions ADD COLUMN attachment_id BLOB;
+
+    CREATE TABLE attachments (
+        id       BLOB PRIMARY KEY NOT NULL,
+        group_id BLOB NOT NULL,
+        mime     TEXT NOT NULL,
+        bytes    BLOB NOT NULL,
+        uploaded INTEGER NOT NULL DEFAULT 0
+    ) STRICT;
+    ",
 ];
 
 /// Brings the schema up to date in one transaction.

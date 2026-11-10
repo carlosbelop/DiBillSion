@@ -4,9 +4,11 @@
 
 use std::sync::Arc;
 
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use dibill_proto::{
-    ApiError, DeviceToken, Invite, Joined, MAX_PUSH_OPS, PullResult, PushOps, RegisterDevice,
-    WireOp,
+    ApiError, Attachment, DeviceToken, Invite, Joined, MAX_PUSH_OPS, PullResult, PushOps,
+    RegisterDevice, WireOp,
 };
 use dibill_store::{GroupId, SyncOp};
 use serde::Serialize;
@@ -382,6 +384,25 @@ impl Core {
         token: &str,
         group: GroupId,
     ) -> Result<SyncSummary, CoreError> {
+        // Photos first, so nobody receives an expense naming a photo the server doesn't have.
+        // Bound first: the store lock must not be held across the uploads.
+        let pending = self.store().pending_attachments(group)?;
+        for (id, mime, bytes) in pending {
+            let body = json(&Attachment {
+                mime,
+                data_base64: STANDARD.encode(&bytes),
+            })?;
+            send_timed(
+                transport,
+                "PUT",
+                format!("/v1/groups/{}/attachments/{id}", group.0),
+                Some(token),
+                Some(body),
+                crate::receipt::ATTACHMENT_TIMEOUT_SECS,
+            )?;
+            self.store().mark_attachment_uploaded(id)?;
+        }
+
         let path = format!("/v1/groups/{}/ops", group.0);
         let mut summary = SyncSummary::default();
         let batch = u32::try_from(MAX_PUSH_OPS).unwrap_or(u32::MAX);
@@ -469,6 +490,7 @@ mod tests {
         members: Vec<Uuid>,
         ops: Vec<WireOp>,
         code: Option<String>,
+        attachments: BTreeMap<String, Attachment>,
     }
 
     const PAGE: usize = 2;
@@ -486,6 +508,15 @@ mod tests {
         ) -> HttpResponse {
             match (method, rest) {
                 ("PUT", []) => ok(200, ()),
+                ("PUT", ["attachments", a]) => {
+                    let photo: Attachment = serde_json::from_str(body.unwrap()).unwrap();
+                    self.attachments.entry((*a).to_owned()).or_insert(photo);
+                    ok(204, ())
+                }
+                ("GET", ["attachments", a]) => match self.attachments.get(*a) {
+                    Some(photo) => ok(200, photo),
+                    None => err(404, "not_found"),
+                },
                 ("POST", ["ops"]) => {
                     let req: PushOps = serde_json::from_str(body.unwrap()).unwrap();
                     if req.ops.iter().any(|o| o.device != me || o.group != id) {
@@ -598,6 +629,7 @@ mod tests {
                                 members: vec![me],
                                 ops: Vec::new(),
                                 code: None,
+                                attachments: BTreeMap::new(),
                             },
                         );
                         return Ok(ok(201, ()));
@@ -638,6 +670,7 @@ mod tests {
                     .collect(),
             }],
             base_total_minor: None,
+            receipt_image_id: None,
         }
     }
 
@@ -796,6 +829,49 @@ mod tests {
         a.delete_group(ghost.clone()).unwrap();
         assert_eq!(a.sync(server.clone()).unwrap().unshared, 0);
         assert!(!a.is_shared(ghost).unwrap());
+    }
+
+    #[test]
+    fn receipt_photos_reach_the_group() {
+        let server: Arc<FakeServer> = Arc::default();
+        let a = Core::in_memory().unwrap();
+        let b = Core::in_memory().unwrap();
+        let group = a
+            .create_group("Flat".into(), None, GroupKindDto::Home, "EUR".into())
+            .unwrap();
+        let ana = a.add_member(group.clone(), "Ana".into()).unwrap();
+        let tx = a
+            .save_transaction(expense(&group, &ana, 1000, &[&ana]))
+            .unwrap();
+        let photo = a
+            .set_receipt_image(tx.clone(), b"jpeg bytes".to_vec(), "image/jpeg".into())
+            .unwrap();
+        assert!(matches!(
+            a.set_receipt_image(tx.clone(), Vec::new(), "image/jpeg".into()),
+            Err(CoreError::InvalidInput { .. })
+        ));
+        // On this phone at once, even offline and before the group is shared.
+        let local = a.receipt_image_local(photo.clone()).unwrap().unwrap();
+        assert_eq!(local.bytes, b"jpeg bytes");
+        assert_eq!(
+            a.transactions(group.clone()).unwrap()[0].receipt_image_id,
+            Some(photo.clone())
+        );
+
+        a.share_group(server.clone(), group.clone()).unwrap();
+        let code = a.invite_code(server.clone(), group.clone()).unwrap();
+        b.join_group(server.clone(), code).unwrap();
+        let seen = b.transactions(group).unwrap();
+        assert_eq!(seen[0].receipt_image_id, Some(photo.clone()));
+        assert_eq!(b.receipt_image_local(photo.clone()).unwrap(), None);
+        let downloaded = b.receipt_image(server.clone(), photo.clone()).unwrap();
+        assert_eq!(
+            (downloaded.mime.as_str(), downloaded.bytes.as_slice()),
+            ("image/jpeg", &b"jpeg bytes"[..])
+        );
+        // Kept: no network needed the second time.
+        server.offline.store(true, Ordering::SeqCst);
+        assert_eq!(b.receipt_image(server.clone(), photo).unwrap(), downloaded);
     }
 
     #[test]
