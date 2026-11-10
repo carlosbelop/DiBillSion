@@ -328,7 +328,7 @@ final class AppModel {
     func join(_ linkOrCode: String) async {
         guard let transport = transportOrExplain() else { return }
         let code = Self.inviteCode(from: linkOrCode)
-        let id = await run { core in try core.joinGroup(transport: transport, code: code) }
+        let id = await run(joining: true) { core in try core.joinGroup(transport: transport, code: code) }
         guard let id else { return }
         await refreshGroups()
         path = [id]
@@ -412,9 +412,9 @@ final class AppModel {
     }
 
     /// Runs blocking core work off the main actor. Errors become `message` (unless
-    /// `quiet`) and a nil result.
+    /// `quiet`) and a nil result. `joining`: a "not found" means the invite, not a group.
     @discardableResult
-    private func run<T>(quiet: Bool = false, _ work: @escaping @Sendable (Core) throws -> T,
+    private func run<T>(quiet: Bool = false, joining: Bool = false, _ work: @escaping @Sendable (Core) throws -> T,
                         apply: (T) -> Void = { _ in }) async -> T? {
         let core = self.core
         let result = await Task.detached(priority: .userInitiated) { () -> Result<T, Error> in
@@ -425,13 +425,13 @@ final class AppModel {
             apply(value)
             return value
         case .failure(let error):
-            if !quiet { message = Self.describe(error) }
+            if !quiet { message = Self.describe(error, joining: joining) }
             return nil
         }
     }
 
     /// A message for the user in their language.
-    nonisolated static func describe(_ error: Error) -> String {
+    nonisolated static func describe(_ error: Error, joining: Bool = false) -> String {
         guard let e = error as? CoreError else {
             return String(localized: "Something in the form isn’t valid.")
         }
@@ -453,7 +453,11 @@ final class AppModel {
             return String(localized: "No connection. Your changes are saved on this phone and will sync later.")
         case .Server(let code, _):
             switch code {
-            case "not_found": return String(localized: "That invite link isn’t valid any more. Ask for a new one.")
+            // Outside joining, a shared group the server doesn't have (e.g. after a move).
+            case "not_found" where joining:
+                return String(localized: "That invite link isn’t valid any more. Ask for a new one.")
+            case "not_found":
+                return String(localized: "A shared group isn’t on the server any more, so it can’t sync. Its data is still on this phone; delete the group if you don’t need it.")
             case "forbidden": return String(localized: "Only the person who shared this group can do that.")
             case "receipts_disabled":
                 return String(localized: "Receipt scanning isn’t available on this server yet.")

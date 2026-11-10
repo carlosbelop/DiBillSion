@@ -154,4 +154,5 @@
         <item quantity="one">%1$d artículo</item>
         <item quantity="other">%1$d artículos</item>
     </plurals>
+    <string name="err_group_not_on_server">Un grupo compartido ya no está en el servidor, así que no se puede sincronizar. Sus datos siguen en este teléfono; bórralo si ya no lo necesitas.</string>
 </resources>

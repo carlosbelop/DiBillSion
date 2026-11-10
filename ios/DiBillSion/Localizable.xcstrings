@@ -214,6 +214,16 @@
     "0": {
       "shouldTranslate": false
     },
+    "A shared group isn’t on the server any more, so it can’t sync. Its data is still on this phone; delete the group if you don’t need it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un grupo compartido ya no está en el servidor, así que no se puede sincronizar. Sus datos siguen en este teléfono; bórralo si ya no lo necesitas."
+          }
+        }
+      }
+    },
     "About %@": {
       "localizations": {
         "es": {

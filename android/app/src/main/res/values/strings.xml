@@ -155,4 +155,5 @@
         <item quantity="one">%1$d item</item>
         <item quantity="other">%1$d items</item>
     </plurals>
+    <string name="err_group_not_on_server">A shared group isn’t on the server any more, so it can’t sync. Its data is still on this phone; delete the group if you don’t need it.</string>
 </resources>
