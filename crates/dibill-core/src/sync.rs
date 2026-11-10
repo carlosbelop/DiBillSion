@@ -59,6 +59,15 @@ pub trait HttpTransport: Send + Sync {
     fn request(&self, request: HttpRequest) -> Result<HttpResponse, TransportError>;
 }
 
+/// An invite to a shared group.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct InviteDto {
+    pub code: String,
+    /// `https://…/join/<code>`, clickable in chats and opening the app when installed; `None`
+    /// when the server has no public site (share `dibillsion://join/<code>` then).
+    pub link: Option<String>,
+}
+
 /// What one sync round did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, uniffi::Record)]
 pub struct SyncSummary {
@@ -148,6 +157,32 @@ impl Core {
             )
         })?;
         Ok(parse::<Invite>(&body)?.code)
+    }
+
+    /// The group's invite with its shareable link (only its owner can get it).
+    ///
+    /// # Errors
+    /// [`CoreError::Server`] with code `forbidden` for non-owners.
+    pub fn invite(
+        &self,
+        transport: Arc<dyn HttpTransport>,
+        group_id: String,
+    ) -> Result<InviteDto, CoreError> {
+        let group = parse_group(&group_id)?;
+        let body = self.authed(&*transport, |token| {
+            send(
+                &*transport,
+                "POST",
+                format!("/v1/groups/{}/invites", group.0),
+                Some(token),
+                None,
+            )
+        })?;
+        let invite = parse::<Invite>(&body)?;
+        Ok(InviteDto {
+            code: invite.code,
+            link: invite.link,
+        })
     }
 
     /// Turns the invite link off; asking for a code again makes a new one.
@@ -486,7 +521,13 @@ mod tests {
                 }
                 ("POST", ["invites"]) if self.owner == me => {
                     let code = self.code.get_or_insert_with(|| format!("code{id}")).clone();
-                    ok(200, Invite { code })
+                    ok(
+                        200,
+                        Invite {
+                            link: Some(format!("https://example.test/join/{code}")),
+                            code,
+                        },
+                    )
                 }
                 ("DELETE", ["invites"]) if self.owner == me => {
                     self.code = None;
@@ -642,6 +683,12 @@ mod tests {
         assert!(a.is_shared(group.clone()).unwrap());
         let code = a.invite_code(server.clone(), group.clone()).unwrap();
         assert_eq!(a.invite_code(server.clone(), group.clone()).unwrap(), code);
+        let invite = a.invite(server.clone(), group.clone()).unwrap();
+        assert_eq!(invite.code, code);
+        assert_eq!(
+            invite.link,
+            Some(format!("https://example.test/join/{code}"))
+        );
 
         // B can't manage A's link, but can join with it.
         assert_eq!(

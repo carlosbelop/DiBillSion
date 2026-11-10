@@ -26,9 +26,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dibill_server::migrate(&db).await?;
     let listener = TcpListener::bind(&bind).await?;
     tracing::info!(%bind, version = env!("CARGO_PKG_VERSION"), "dibill-server listening");
-    axum::serve(listener, dibill_server::app(db, receipts))
-        .with_graceful_shutdown(shutdown())
-        .await?;
+    axum::serve(
+        listener,
+        dibill_server::app(db, receipts, dibill_server::Site::from_env()),
+    )
+    .with_graceful_shutdown(shutdown())
+    .await?;
     Ok(())
 }
 

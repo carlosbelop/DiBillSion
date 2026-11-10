@@ -41,6 +41,7 @@ ios/*.xcframework/
 ios/Generated/
 ios/*.xcodeproj/
 ios/DiBillSion/Info.plist
+ios/DiBillSion/DiBillSion.entitlements
 
 # --- Editors / OS ---
 .vscode/*

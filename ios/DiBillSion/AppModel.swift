@@ -33,8 +33,10 @@ enum ScanState: Equatable {
 struct PendingInvite: Identifiable {
     let groupName: String
     let code: String
+    /// The server's `https://…/join/<code>`: clickable in chats, opens the app.
+    var webLink: String?
     var id: String { code }
-    var link: String { "dibillsion://join/\(code)" }
+    var link: String { webLink ?? "dibillsion://join/\(code)" }
 }
 
 /// Talks to the Rust core. Every core call is short and blocking, so it runs off the
@@ -306,14 +308,14 @@ final class AppModel {
     func shareGroup() async {
         guard let transport = transportOrExplain(), let d = detail else { return }
         let id = d.group.id
-        let code = await run { core -> String in
+        let dto = await run { core -> InviteDto in
             if try !core.isShared(groupId: id) { _ = try core.shareGroup(transport: transport, groupId: id) }
-            return try core.inviteCode(transport: transport, groupId: id)
+            return try core.invite(transport: transport, groupId: id)
         }
-        guard let code else { return }
+        guard let dto else { return }
         await reload(id)
         await refreshGroups()
-        invite = PendingInvite(groupName: d.group.name, code: code)
+        invite = PendingInvite(groupName: d.group.name, code: dto.code, webLink: dto.link)
     }
 
     /// Turns the invite link off; inviting again makes a new one.

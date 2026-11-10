@@ -39,7 +39,9 @@ class MainActivity : ComponentActivity() {
     /** `dibillsion://join/<code>` opens the app and joins the group. */
     private fun handleInvite(intent: Intent?) {
         val uri = intent?.data ?: return
-        if (uri.scheme == "dibillsion" && uri.host == "join") uri.lastPathSegment?.let(vm::join)
+        val invite = (uri.scheme == "dibillsion" && uri.host == "join") ||
+            (uri.scheme == "https" && uri.pathSegments.size == 2 && uri.pathSegments[0] == "join")
+        if (invite) uri.lastPathSegment?.let(vm::join)
     }
 }
 

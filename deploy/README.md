@@ -44,6 +44,21 @@ DIBILL_DOMAIN=api.example.com
 
 `deploy.sh` then also starts Caddy ([`compose.https.yaml`](compose.https.yaml), [`Caddyfile`](Caddyfile)),
 which gets and renews a Let's Encrypt certificate by itself and redirects HTTP to HTTPS.
+`DIBILL_DOMAIN` may list several names, e.g. `api.example.com, example.com` (each needs its DNS record).
+
+**Invite links.** With a public site, invites are `https://<site>/join/<code>`: chat apps show them as
+links, and the apps open them directly when installed (Universal Links on iOS, App Links on Android);
+otherwise the server's join page shows the code and how to get the app. In the host's `.env`:
+
+```bash
+DIBILL_SITE_URL=https://example.com                      # served by this server too (DIBILL_DOMAIN)
+DIBILL_IOS_APP_IDS=ABCDE12345.com.dibillsion.app         # Apple Team ID + bundle id
+DIBILL_ANDROID_APPS=com.dibillsion.app=AA:BB:…           # package = SHA-256 of the release signing cert
+```
+
+The server then serves `/join/<code>`, `/.well-known/apple-app-site-association` and
+`/.well-known/assetlinks.json`. The iOS app declares `applinks:$(SITE_HOST)` and the Android app
+an App Links filter for `dibill.siteHost` (both default to `dibillsion.com`).
 
 **Without a public IP or domain (the Pi at home)**, pick one; both need no open ports and give a
 valid certificate.

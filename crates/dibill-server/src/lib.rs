@@ -8,6 +8,7 @@ mod error;
 mod extract;
 mod receipts;
 mod routes;
+mod site;
 
 use std::sync::Arc;
 
@@ -23,6 +24,7 @@ use tower_http::trace::TraceLayer;
 pub use deadpool_postgres::Pool;
 pub use error::AppError;
 pub use receipts::Receipts;
+pub use site::Site;
 
 /// Schema migrations, applied in order. Never edit a released one: append.
 const MIGRATIONS: &[&str] = &[
@@ -37,6 +39,7 @@ const MIGRATION_LOCK: i64 = 0x0D1B_1115;
 pub struct AppState {
     pub db: Pool,
     pub receipts: Arc<Receipts>,
+    pub site: Arc<Site>,
 }
 
 /// A connection pool for `config` (no TLS: the database is reached on a private network).
@@ -96,7 +99,7 @@ pub async fn migrate(pool: &Pool) -> Result<(), AppError> {
 }
 
 /// The whole HTTP API on a migrated database.
-pub fn app(db: Pool, receipts: Receipts) -> Router {
+pub fn app(db: Pool, receipts: Receipts, site: Site) -> Router {
     let api = Router::new()
         .route("/devices", post(routes::register_device))
         .route("/groups/{id}", put(routes::share_group))
@@ -117,6 +120,12 @@ pub fn app(db: Pool, receipts: Receipts) -> Router {
         );
     Router::new()
         .route("/health", get(routes::health))
+        .route("/join/{code}", get(site::join_page))
+        .route(
+            "/.well-known/apple-app-site-association",
+            get(site::apple_app_site_association),
+        )
+        .route("/.well-known/assetlinks.json", get(site::asset_links))
         .nest(API_PREFIX, api)
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
         .layer(CompressionLayer::new())
@@ -124,6 +133,7 @@ pub fn app(db: Pool, receipts: Receipts) -> Router {
         .with_state(AppState {
             db,
             receipts: Arc::new(receipts),
+            site: Arc::new(site),
         })
 }
 

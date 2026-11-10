@@ -19,8 +19,12 @@ struct DiBillSionApp: App {
             GroupsView()
                 .environment(model)
                 // `dibillsion://join/<code>` opens the app and joins the group.
+                // `dibillsion://join/<code>`, or `https://<site>/join/<code>` (Universal Links).
                 .onOpenURL { url in
-                    guard url.scheme == "dibillsion", url.host == "join" else { return }
+                    let parts = url.pathComponents.filter { $0 != "/" }
+                    let invite = (url.scheme == "dibillsion" && url.host == "join")
+                        || (url.scheme == "https" && parts.count == 2 && parts[0] == "join")
+                    guard invite else { return }
                     Task { await model.join(url.lastPathComponent) }
                 }
         }

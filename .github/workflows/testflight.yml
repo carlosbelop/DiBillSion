@@ -83,6 +83,8 @@ jobs:
           cd "$RUNNER_TEMP"
           openssl req -new -newkey rsa:2048 -nodes -keyout dist.key -out dist.csr \
             -subj "/CN=DiBillSion CI ${{ github.run_id }}"
+          # Invite links open the app (Universal Links): the profile must carry Associated Domains.
+          python3 "$GITHUB_WORKSPACE/scripts/asc.py" ensure-capability com.dibillsion.app ASSOCIATED_DOMAINS
           cert_id=$(python3 "$GITHUB_WORKSPACE/scripts/asc.py" create-cert dist.csr dist.pem)
           echo "CERT_ID=$cert_id" >> "$GITHUB_ENV"
           read -r profile_id uuid < <(python3 "$GITHUB_WORKSPACE/scripts/asc.py" \
