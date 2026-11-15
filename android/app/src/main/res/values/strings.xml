@@ -177,4 +177,7 @@
     <string name="split_item_title">Split “%1$s”</string>
     <string name="custom_split">Custom split</string>
     <string name="apply">Apply</string>
+    <string name="split_all">Split every item…</string>
+    <string name="split_all_title">Split the whole receipt</string>
+    <string name="split_all_hint">Every item takes this split. You can still change each item afterwards.</string>
 </resources>

@@ -269,6 +269,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             (up + down).forEach { (id, p) -> core.setItemParts(transactionId, itemIndex.toUInt(), id, p) }
         }
 
+    /**
+     * The same split for several items of one expense ([items]: index and item), e.g. the
+     * whole receipt at once. Per item, increases go first as in [setItemParts].
+     */
+    fun setAllItemsParts(transactionId: String, items: List<Pair<Int, ItemDto>>, parts: Map<String, UInt>) =
+        inGroup {
+            for ((index, item) in items) {
+                val current = item.shares.associate { it.memberId to (it.parts ?: 0u) }
+                val wanted = (current.keys + parts.keys).associateWith { parts[it] ?: 0u }
+                val changes = wanted.filter { (id, p) -> current[id] ?: 0u != p }.toList()
+                val (up, down) = changes.partition { (id, p) -> p > (current[id] ?: 0u) }
+                (up + down).forEach { (id, p) -> core.setItemParts(transactionId, index.toUInt(), id, p) }
+            }
+        }
+
     /** What each of [shares] comes to out of [totalMinor], exactly as the core splits it. */
     fun previewShares(totalMinor: Long, shares: List<ShareDto>): List<Long> = try {
         previewSplit(totalMinor, shares)

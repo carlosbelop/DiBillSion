@@ -3,7 +3,7 @@
 > Living document. Every session reads it first and updates it in the same PR as the work it describes.
 > Milestones are defined in [PLAN.md §4](PLAN.md).
 
-Last updated: 2026-10-31 (session 5)
+Last updated: 2026-11-15
 
 ## Where we are
 
@@ -19,8 +19,9 @@ Last updated: 2026-10-31 (session 5)
 
 1. ~~**P0 public-repo prep**~~ done (current files cleaned, history kept; issue/PR texts edited). The owner switches the repo to public.
 2. **M4 iOS → TestFlight**: app and CI done (#72, #74); TestFlight uploads work (#78), testers pending (see *Needs the owner*). Then simulator screenshots in CI and parity items.
-3. **B1 Pi** (weekend, when the owner turns the Pi on): 64-bit OS + Docker, `deploy/deploy.sh`, Tailscale Funnel URL → release `SYNC_URL`; then B2 Android beta build.
-4. **M7 receipts** (2026-10-31, while the Pi waits): eval set + harness (#82), server endpoint + core (#84), Android (#86) and iOS (#88) scan screens done. Next: run the eval (owner: provider key), set `RECEIPT_*` on the Pi, try a real scan on both phones, then a TestFlight build.
+3. ~~**B1 Pi**~~ superseded (2026-11): production runs on a Hetzner VPS with Caddy and `api.dibillsion.com` (#105); B2 Android beta build done (#113). The Pi's old stack may still start if the Pi is switched on: `docker compose down` in `~/dibillsion` there when it's reachable.
+4. **M7 receipts**: done and live on the VPS (Claude Haiku 5.5, chosen by the owner). Next: more real receipts in the eval set.
+5. **Tester feedback rounds** (2026-11-10 onwards, below), then iOS Universal Links check, server hardening, iOS parity, receipt photo cleanup.
 
 ## Backlog (in order)
 
@@ -80,7 +81,7 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 - [x] Evaluation set started: `eval/receipts/` with 5 receipts from the owner (ES supermarkets, ES/FR restaurants) and our ground truth; photos are in the repo (owner's decision, 2026-10-31). A test checks every ground truth parses and adds up. Grows as the owner adds photos (same PR).
 - [x] `receipt-eval` harness: many models in one run, parse rate, exact totals, exact item lists, recall/precision, label similarity, merchant/date, retries, latency p50/p95, tokens, cost (reported by the provider or from `--model name@in,out` prices), markdown report (same PR).
 - [x] Native Claude provider (Messages API, structured output) next to the OpenAI-compatible one: `RECEIPT_API=anthropic` on the server, `--api anthropic` in the harness (ADR 0008 addendum). ([#90](https://github.com/carlosbelop/DiBillSion/pull/90))
-- [ ] Run the eval on Claude models (owner: Anthropic key in `~/.config/dibillsion/receipt.env`, see [eval/receipts/README.md](../eval/receipts/README.md)). More receipts first (aim: 30+).
+- [x] Run the eval on Claude models: the owner chose Claude Haiku 5.5 for production (2026-11). Still useful: more receipts in the set (aim: 30+).
 
 ### M7b: scanning in the app
 - [x] Server: `POST /v1/receipts/scan` (base64 image → configured model → validated answer with one repair retry), provider key only on the server (`RECEIPT_*` env, off without it), per-device daily limit and global monthly cap counted in `receipt_scans` (no image stored), new error codes `receipts_disabled`, `limit_reached`, `unreadable`, `provider_failed`. Core `scan_receipt` normalizes into minor units of the group's currency. Deploy kit passes the settings ([deploy/README §4](../deploy/README.md)). ([#84](https://github.com/carlosbelop/DiBillSion/pull/84))
@@ -92,6 +93,10 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 - [x] Receipt photo kept with the expense ([ADR 0010](adr/0010-receipt-photos.md)): the scanned JPEG is attached on save (transaction field `attachment`, store schema v5 `attachments`), uploaded on sync before the ops, stored on the server for the group's members, downloaded once by the other phones; expense detail shows a thumbnail that opens full screen with pinch-to-zoom (both). ([#119](https://github.com/carlosbelop/DiBillSion/pull/119))
 - [x] iOS: each item shows who shares it in one line ("Ana, Bea +2") and opens a checklist with Everyone (receipt review and expense detail). ([#121](https://github.com/carlosbelop/DiBillSion/pull/121))
 - [x] Android: split an expense equally, by parts, by percentage (hundredths, reduced to lowest parts) or by exact amounts, with live exact shares and what's left to assign; split a receipt item equally, by parts or by percentage from the expense detail (core `set_item_parts`, synced per person). Checked on the Pixel: 50/30/20 % of 60 € → 30/18/12; item re-split 5/3/1 → 33,33/20,00/6,67. ([#123](https://github.com/carlosbelop/DiBillSion/pull/123))
+
+### Tester feedback (owner, 2026-11-15)
+- [x] Android: the receipt review splits each item equally, by parts or by percentage right away (before, only after saving and reopening the expense), and "Split every item" sets one split for the whole receipt that every item takes; each item can still be changed afterwards (also in the expense detail, for items split by parts). ([#130](https://github.com/carlosbelop/DiBillSion/pull/130))
+- [ ] iOS: the same, plus Android's unequal splits for new expenses (parts, %, amounts) and the item split from the detail ([#129](https://github.com/carlosbelop/DiBillSion/issues/129)).
 
 ### M7c: receipt detail (owner request, 2026-10-31)
 - [x] Item membership synced per (item, member) so people can join or leave receipt items after saving and concurrent changes all survive ([ADR 0009](adr/0009-item-membership-ops.md)); store `set_item_share`, core `set_item_member`. ([#92](https://github.com/carlosbelop/DiBillSion/pull/92))
@@ -106,7 +111,7 @@ Exit criterion: two devices converge after offline edits. Design: [ADR 0004](adr
 - [ ] Simulator screenshots as CI artifacts; remaining parity with Android (edit expenses, income, unequal splits, foreign-currency polish).
 - [x] Signing + TestFlight upload from CI (`testflight.yml`, automatic signing with the App Store Connect API key, internal testing only; unsigned device archive on PRs). ([#74](https://github.com/carlosbelop/DiBillSion/pull/74))
 - [x] First TestFlight upload (2026-10-31, build 13; no sync server yet). Signing: each run makes a throwaway Apple Distribution certificate + App Store profile through the API (`scripts/asc.py`), signs manually, uploads, then revokes/deletes them; Xcode 26 runners (`macos-26`), required by App Store Connect. ([#78](https://github.com/carlosbelop/DiBillSion/pull/78))
-- [ ] Flatmates installed it from TestFlight (owner: add them as internal testers).
+- [ ] Flatmates installed it from TestFlight: one friend is an internal tester (build 26); add the rest when they want it.
 
 ### Later
 M6 polish · M8 store release. See PLAN §4.
@@ -132,11 +137,11 @@ The dev password is local-only; never reuse it for a hosted database.
 - Since the repo is public (2026-10-31) the `Protect main` ruleset is enforced: PR only, squash only, required checks (Rust, Dependencies, No binaries / secrets), verified signatures, linear history.
 
 ## Needs the owner (open requests)
-- **TestFlight testers**: add the flatmates as internal testers ([ios/README.md § TestFlight](../ios/README.md#testflight), step 5). Apple setup and secrets are done; the first build is uploaded.
-- **Raspberry Pi** this weekend: say when it's on; 64-bit Raspberry Pi OS, SSH key, Docker, Tailscale.
+- **TestFlight testers**: one friend is an internal tester; add the other flatmates the same way when they want it ([ios/README.md § TestFlight](../ios/README.md#testflight), step 5).
+- **Raspberry Pi** (retired): if you switch it on, tell me so I can stop its old stack (`docker compose down` in `~/dibillsion`), or run that yourself.
+- **Android keystore backup**: put `~/.config/dibillsion/android-release.jks` and its `.properties` file in a password manager.
+- **Store release**: store accounts, a privacy policy (receipt photos are stored on the server) and Play Console if we go beyond APK sideloading.
 - **Domain / name**: autosplit.com is registered (since 2003, renewed to 2027; no website). Free alternatives checked on 2026-10-30: autosplit.app, getautosplit.com, autosplitapp.com, dibillsion.com, dibillsion.app. Using "AutoSplit" would also be a rename (branding), and the name is used by an existing open-source speedrunning tool: worth a trademark check.
-- **Claude API key** (decided 2026-10-31: Claude to start): for the eval, `~/.config/dibillsion/receipt.env` (outside the repo, `chmod 600`) with `export ANTHROPIC_API_KEY=...`; for production, `RECEIPT_API=anthropic`, `RECEIPT_API_KEY`, `RECEIPT_MODEL` in `~/dibillsion/.env` on the Pi ([deploy/README §4](../deploy/README.md)). A dedicated key in a workspace with a spend limit is safest. More receipt photos for `eval/receipts/`.
-- **Android beta distribution**: APK sideload (free) or Play internal testing ($25 one-time account); a release signing key kept by you.
 - **App name, `applicationId` and icon** (needed before M8): keeping DiBillSion and the current icon for now (owner, 2026-10-30); tell me when you have the final ones.
 - **UI direction:** the redesign is original (hard rule 1). Point out on the phone what you'd like different and I'll iterate.
 - **Second device (optional)**: an Android emulator (Android Studio on Windows) or a second phone with USB/wireless debugging, for the two-real-device check.

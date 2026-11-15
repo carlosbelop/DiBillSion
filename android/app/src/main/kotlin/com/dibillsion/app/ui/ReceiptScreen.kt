@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -106,6 +107,8 @@ fun ReceiptReviewScreen(d: GroupDetail, draft: ReceiptDraft, vm: AppViewModel) {
     val everyone = active.map { it.id }.toSet()
     var discarding by remember { mutableStateOf(false) }
     var pickingDate by remember { mutableStateOf(false) }
+    var splittingLine by remember { mutableStateOf<Long?>(null) }
+    var splittingAll by remember { mutableStateOf(false) }
 
     val exponent = vm.exponentOf(draft.currency)
     val foreign = draft.currency != d.group.baseCurrency
@@ -136,6 +139,42 @@ fun ReceiptReviewScreen(d: GroupDetail, draft: ReceiptDraft, vm: AppViewModel) {
             },
             dismissButton = { TextButton(onClick = { pickingDate = false }) { Text(stringResource(R.string.cancel)) } },
         ) { DatePicker(picker) }
+    }
+
+    splittingLine?.let { key ->
+        draft.lines.firstOrNull { it.key == key }?.let { line ->
+            PartsSplitDialog(
+                title = stringResource(R.string.split_item_title, line.label.ifBlank { stringResource(R.string.item) }),
+                totalMinor = exponent?.let { Money.parse(line.amount, it) },
+                initial = line.parts,
+                people = active,
+                exponent = exponent ?: d.exponent,
+                currency = draft.currency,
+                vm = vm,
+                onApply = { parts ->
+                    vm.editReceipt { it.update(key) { l -> l.withParts(parts) } }
+                    splittingLine = null
+                },
+                onDismiss = { splittingLine = null },
+            )
+        }
+    }
+    if (splittingAll) {
+        PartsSplitDialog(
+            title = stringResource(R.string.split_all_title),
+            totalMinor = exponent?.let(draft::sum),
+            initial = draft.currentWholeSplit(everyone),
+            people = active,
+            exponent = exponent ?: d.exponent,
+            currency = draft.currency,
+            vm = vm,
+            hint = stringResource(R.string.split_all_hint),
+            onApply = { parts ->
+                vm.editReceipt { it.splitAll(parts) }
+                splittingAll = false
+            },
+            onDismiss = { splittingAll = false },
+        )
     }
 
     Scaffold(
@@ -195,6 +234,12 @@ fun ReceiptReviewScreen(d: GroupDetail, draft: ReceiptDraft, vm: AppViewModel) {
 
             HorizontalDivider()
             Text(stringResource(R.string.receipt_items_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (active.isNotEmpty()) {
+                OutlinedButton(onClick = { splittingAll = true }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.AutoMirrored.Filled.CallSplit, null)
+                    Text(stringResource(R.string.split_all), Modifier.padding(start = 8.dp))
+                }
+            }
             draft.lines.forEach { line ->
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -225,10 +270,10 @@ fun ReceiptReviewScreen(d: GroupDetail, draft: ReceiptDraft, vm: AppViewModel) {
                             )
                         }
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            val all = line.members.containsAll(everyone)
+                            val all = line.members.containsAll(everyone) && line.even
                             FilterChip(
                                 selected = all,
-                                onClick = { vm.editReceipt { it.update(line.key) { l -> l.copy(members = if (all) emptySet() else everyone) } } },
+                                onClick = { vm.editReceipt { it.update(line.key) { l -> l.withMembers(if (all) emptySet() else everyone) } } },
                                 label = { Text(stringResource(R.string.select_all)) },
                             )
                             active.forEach { m ->
@@ -237,17 +282,23 @@ fun ReceiptReviewScreen(d: GroupDetail, draft: ReceiptDraft, vm: AppViewModel) {
                                     selected = on && !all,
                                     onClick = {
                                         // From "everyone", a tap picks just that person: the usual case.
-                                        val next = when {
-                                            all -> setOf(m.id)
-                                            on -> line.members - m.id
-                                            else -> line.members + m.id
+                                        vm.editReceipt {
+                                            it.update(line.key) { l -> if (all) l.withMembers(setOf(m.id)) else l.toggle(m.id) }
                                         }
-                                        vm.editReceipt { it.update(line.key) { l -> l.copy(members = next) } }
                                     },
                                     leadingIcon = { Avatar(initials(m.displayName), m.id, size = 20.dp) },
                                     label = { Text(m.displayName) },
                                 )
                             }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (line.even) "" else stringResource(R.string.custom_split),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(onClick = { splittingLine = line.key }) { Text(stringResource(R.string.split_item)) }
                         }
                     }
                 }

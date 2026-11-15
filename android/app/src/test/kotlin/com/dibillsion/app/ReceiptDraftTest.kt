@@ -40,7 +40,7 @@ class ReceiptDraftTest {
 
     @Test
     fun itemsDropFreeLinesAndKeepMemberOrder() {
-        val d = draft().update(2) { it.copy(members = setOf("c", "a")) }
+        val d = draft().update(2) { it.withMembers(setOf("c", "a")) }
         val items = d.items(2, listOf("a", "b", "c"))
         assertEquals(listOf(27_000L, 117L), items.map { it.totalMinor })
         assertEquals(listOf("a", "c"), items[1].shares.map { it.memberId })
@@ -51,14 +51,43 @@ class ReceiptDraftTest {
     fun problems() {
         assertEquals(ReceiptDraft.Problem.AMOUNT, draft().update(0) { it.copy(amount = "x") }.problem(2))
         assertNull(draft().update(0) { it.copy(amount = "x") }.sum(2))
-        assertEquals(ReceiptDraft.Problem.NOBODY, draft().update(0) { it.copy(members = emptySet()) }.problem(2))
+        assertEquals(ReceiptDraft.Problem.NOBODY, draft().update(0) { it.withMembers(emptySet()) }.problem(2))
         // A free line may have nobody.
-        assertNull(draft().update(1) { it.copy(members = emptySet()) }.problem(2))
+        assertNull(draft().update(1) { it.withMembers(emptySet()) }.problem(2))
         val empty = draft().remove(0).remove(2)
         assertEquals(ReceiptDraft.Problem.EMPTY, empty.problem(2))
         val added = empty.add(everyone)
         assertEquals(listOf(1L, 2L), added.lines.map { it.key })
         assertEquals(ReceiptDraft.Problem.AMOUNT, added.problem(2))
+    }
+
+    @Test
+    fun lineSplitByParts() {
+        val d = draft().update(0) { it.withParts(mapOf("a" to 2, "b" to 1, "c" to 0)) }
+        assertEquals(setOf("a", "b"), d.lines[0].members)
+        assertEquals(false, d.lines[0].even)
+        val item = d.items(2, listOf("c", "b", "a"))[0]
+        assertEquals(listOf("b" to 1u, "a" to 2u), item.shares.map { it.memberId to it.parts })
+        // On a custom line the others keep their parts; a newcomer takes one.
+        assertEquals(mapOf("a" to 2L, "b" to 1L, "c" to 1L), d.lines[0].toggle("c").parts)
+        assertEquals(mapOf("a" to 2L), d.lines[0].toggle("b").parts)
+        // An even line stays even.
+        assertEquals(mapOf("a" to 1L, "b" to 1L), draft().lines[0].toggle("c").parts)
+    }
+
+    @Test
+    fun wholeReceiptSplitAppliesToEveryLineAndEachCanChange() {
+        val whole = mapOf("a" to 50L, "b" to 30L, "c" to 0L)
+        val d = draft().splitAll(whole)
+        assertEquals(List(3) { mapOf("a" to 50L, "b" to 30L) }, d.lines.map { it.parts })
+        assertEquals(mapOf("a" to 50L, "b" to 30L), d.currentWholeSplit(everyone))
+        // New lines take the whole-receipt split too.
+        assertEquals(mapOf("a" to 50L, "b" to 30L), d.add(everyone).lines.last().parts)
+        val changed = d.update(1) { it.withMembers(setOf("c")) }
+        assertEquals(mapOf("c" to 1L), changed.lines[1].parts)
+        assertEquals(mapOf("a" to 50L, "b" to 30L), changed.lines[0].parts)
+        // Without a whole split chosen, the dialog starts from what all lines share, else equal.
+        assertEquals(mapOf("a" to 1L, "b" to 1L, "c" to 1L), draft().currentWholeSplit(everyone))
     }
 
     @Test
