@@ -178,24 +178,23 @@ final class AppModel {
 
     // MARK: - Transactions
 
-    /// What each member's equal share of `totalMinor` comes to, computed by the core so
-    /// the editor shows the same cents that will be saved. Empty when it can't split.
-    func previewEqualSplit(_ totalMinor: Int64, among: [String]) -> [Int64] {
-        (try? previewSplit(totalMinor: totalMinor,
-                           shares: among.map { ShareDto(memberId: $0, parts: 1, amountMinor: nil) })) ?? []
+    /// What each of `shares` comes to out of `totalMinor`, exactly as the core splits it;
+    /// empty when it can't.
+    func previewShares(_ totalMinor: Int64, shares: [ShareDto]) -> [Int64] {
+        (try? previewSplit(totalMinor: totalMinor, shares: shares)) ?? []
     }
 
-    /// An equal split of `amountMinor` between `among`, paid by `payerId`. True when saved.
+    /// `amountMinor` paid by `payerId`, split as `shares` (equal, parts, percentage or amounts).
+    /// True when saved.
     func addExpense(title: String, amountMinor: Int64, currency: String, fxRate: String?,
-                    payerId: String, among: [String], dateDays: Int32) async -> Bool {
+                    payerId: String, shares: [ShareDto], dateDays: Int32) async -> Bool {
         let title = title.trimmingCharacters(in: .whitespaces)
         var saved = false
         await inGroup { core, d in
             _ = try core.saveTransaction(t: TransactionDto(
                 id: nil, groupId: d.group.id, kind: .expense, title: title, payerId: payerId,
                 currency: currency, fxRate: fxRate, dateDays: dateDays,
-                items: [ItemDto(label: nil, totalMinor: amountMinor,
-                                shares: among.map { ShareDto(memberId: $0, parts: 1, amountMinor: nil) })],
+                items: [ItemDto(label: nil, totalMinor: amountMinor, shares: shares)],
                 baseTotalMinor: nil))
         } onSuccess: { saved = true }
         return saved
@@ -222,6 +221,26 @@ final class AppModel {
         await inGroup { core, _ in
             try core.setItemMember(transactionId: transactionId, itemIndex: UInt32(itemIndex),
                                    memberId: memberId, included: included)
+        }
+    }
+
+    /// Sets everyone's parts of some items of one expense (0 = not sharing), e.g. one item or
+    /// the whole receipt at once. Per item, increases go first, so it never has nobody halfway.
+    func setItemsParts(transactionId: String, items: [(index: Int, item: ItemDto)], parts: [String: UInt32]) async {
+        await inGroup { core, _ in
+            for (index, item) in items {
+                var current: [String: UInt32] = [:]
+                for s in item.shares { current[s.memberId] = s.parts ?? 0 }
+                let ids = Set(current.keys).union(parts.keys).sorted()
+                let changes = ids.compactMap { id -> (String, UInt32)? in
+                    let p = parts[id] ?? 0
+                    return p != (current[id] ?? 0) ? (id, p) : nil
+                }
+                let ordered = changes.filter { $0.1 > (current[$0.0] ?? 0) } + changes.filter { $0.1 < (current[$0.0] ?? 0) }
+                for (id, p) in ordered {
+                    try core.setItemParts(transactionId: transactionId, itemIndex: UInt32(index), memberId: id, parts: p)
+                }
+            }
         }
     }
 

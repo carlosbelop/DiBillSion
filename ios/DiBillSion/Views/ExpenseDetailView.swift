@@ -8,6 +8,7 @@ struct ExpenseDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var confirmDelete = false
+    @State private var splitting: SplitTarget?
 
     var body: some View {
         NavigationStack {
@@ -51,6 +52,14 @@ struct ExpenseDetailView: View {
                 Section { ReceiptPhotoView(imageId: photo) }
             }
 
+            if byParts(t).count > 1 && d.members.contains(where: \.active) {
+                Section {
+                    Button { splitting = .all } label: {
+                        Label("Split every item…", systemImage: "arrow.triangle.branch")
+                    }
+                }
+            }
+
             ForEach(Array(t.items.enumerated()), id: \.offset) { index, item in
                 Section { itemRow(d, t, index, item, shares[index], fmt) }
             }
@@ -76,6 +85,7 @@ struct ExpenseDetailView: View {
                     .accessibilityLabel("Delete")
             }
         }
+        .sheet(item: $splitting) { target in splitSheet(d, t, target, exponent) }
         .confirmationDialog("Delete “\(t.title)”?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 dismiss()
@@ -115,10 +125,84 @@ struct ExpenseDetailView: View {
             })
         if !byParts {
             Text("Split by exact amounts: change it from the editor.").font(.caption).foregroundStyle(.secondary)
-        } else if inItem.count > 1, let low = parts.min(), let high = parts.max() {
-            // Cents left over go to some people, so a range when they differ.
-            Text("\(low == high ? fmt(high) : fmt(low) + "–" + fmt(high)) each")
-                .font(.caption).foregroundStyle(.secondary)
+        } else {
+            HStack {
+                let even = Set(item.shares.map(\.parts)).count <= 1
+                if !even {
+                    Text("Custom split").font(.caption).foregroundStyle(.secondary)
+                } else if inItem.count > 1, let low = parts.min(), let high = parts.max() {
+                    // Cents left over go to some people, so a range when they differ.
+                    Text("\(low == high ? fmt(high) : fmt(low) + "–" + fmt(high)) each")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Split…") { splitting = .item(index) }
+                    .font(.subheadline)
+                    .buttonStyle(.borderless)
+            }
+        }
+    }
+
+    /// Items split by parts, with their index; exact-amount items keep their amounts.
+    private func byParts(_ t: TransactionDto) -> [(index: Int, item: ItemDto)] {
+        t.items.enumerated().filter { $0.element.shares.allSatisfy { $0.parts != nil } }
+            .map { (index: $0.offset, item: $0.element) }
+    }
+
+    private static func partsMap(_ item: ItemDto) -> [String: Int64] {
+        var map: [String: Int64] = [:]
+        for s in item.shares { map[s.memberId] = Int64(s.parts ?? 0) }
+        return map
+    }
+
+    @ViewBuilder
+    private func splitSheet(_ d: GroupDetail, _ t: TransactionDto, _ target: SplitTarget, _ exponent: Int) -> some View {
+        let active = d.members.filter(\.active)
+        switch target {
+        case .item(let index):
+            if index < t.items.count {
+                let item = t.items[index]
+                PartsSplitSheet(
+                    title: String(localized: "Split “\(item.label ?? t.title)”"),
+                    totalMinor: item.totalMinor, initial: Self.partsMap(item),
+                    people: d.members.filter { m in m.active || item.shares.contains { $0.memberId == m.id } },
+                    exponent: exponent, code: t.currency
+                ) { parts in
+                    Task {
+                        await model.setItemsParts(transactionId: transactionId, items: [(index: index, item: item)],
+                                                  parts: parts.mapValues { UInt32($0) })
+                    }
+                }
+            }
+        case .all:
+            let items = byParts(t)
+            let maps = items.map { Self.partsMap($0.item) }
+            PartsSplitSheet(
+                title: String(localized: "Split the whole receipt"),
+                hint: String(localized: "Every item takes this split. You can still change each item afterwards."),
+                totalMinor: items.reduce(0) { $0 + $1.item.totalMinor },
+                initial: maps.allSatisfy { $0 == maps.first } ? (maps.first ?? equalParts(Set(active.map(\.id))))
+                    : equalParts(Set(active.map(\.id))),
+                people: active, exponent: exponent, code: t.currency
+            ) { parts in
+                Task {
+                    await model.setItemsParts(transactionId: transactionId, items: items,
+                                              parts: parts.mapValues { UInt32($0) })
+                }
+            }
+        }
+    }
+}
+
+/// Which split sheet is open in the expense detail.
+private enum SplitTarget: Identifiable {
+    case item(Int)
+    case all
+
+    var id: String {
+        switch self {
+        case .item(let i): "item-\(i)"
+        case .all: "all"
         }
     }
 }

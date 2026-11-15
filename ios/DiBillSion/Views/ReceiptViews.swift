@@ -117,6 +117,7 @@ private struct ReceiptReviewView: View {
     @Environment(AppModel.self) private var model
     @State private var confirmDiscard = false
     @State private var saving = false
+    @State private var splitting: ReceiptSplitTarget?
 
     private var active: [MemberDto] { d.members.filter(\.active) }
     private var everyone: Set<String> { Set(active.map(\.id)) }
@@ -160,6 +161,15 @@ private struct ReceiptReviewView: View {
                     if let exponent { TotalCheck(draft: draft, exponent: exponent) }
                 }
 
+                if !active.isEmpty {
+                    Section {
+                        Button { splitting = .all } label: {
+                            Label("Split every item…", systemImage: "arrow.triangle.branch")
+                        }
+                    } footer: {
+                        Text("One split for the whole receipt. You can still change each item afterwards.")
+                    }
+                }
                 ForEach(draft.lines) { line in
                     Section { lineEditor(line) }
                 }
@@ -218,6 +228,7 @@ private struct ReceiptReviewView: View {
             } message: {
                 Text(model.message ?? "")
             }
+            .sheet(item: $splitting) { target in splitSheet(target) }
             .confirmationDialog("Discard this receipt?", isPresented: $confirmDiscard, titleVisibility: .visible) {
                 Button("Discard", role: .destructive) { model.closeScan() }
             }
@@ -246,14 +257,38 @@ private struct ReceiptReviewView: View {
         }
         SharedByRow(
             people: active, selected: line.members,
-            toggle: { id in
-                model.editReceipt {
-                    $0.update(line.id) { l in
-                        if l.members.contains(id) { l.members.remove(id) } else { l.members.insert(id) }
-                    }
-                }
-            },
+            toggle: { id in model.editReceipt { $0.update(line.id) { $0.toggle(id) } } },
             setAll: { on in model.editReceipt { $0.update(line.id) { $0.members = on ? everyone : [] } } })
+        HStack {
+            if !line.even { Text("Custom split").font(.caption).foregroundStyle(.secondary) }
+            Spacer()
+            Button("Split…") { splitting = .line(line.id) }
+                .font(.subheadline)
+                .buttonStyle(.borderless)
+        }
+    }
+
+    @ViewBuilder
+    private func splitSheet(_ target: ReceiptSplitTarget) -> some View {
+        let exp = exponent ?? d.exponent
+        switch target {
+        case .line(let id):
+            if let line = draft.lines.first(where: { $0.id == id }) {
+                let label = line.label.trimmingCharacters(in: .whitespaces)
+                PartsSplitSheet(
+                    title: String(localized: "Split “\(label.isEmpty ? String(localized: "Item") : label)”"),
+                    totalMinor: Money.parse(line.amount, exponent: exp), initial: line.parts,
+                    people: active, exponent: exp, code: draft.currency
+                ) { parts in model.editReceipt { $0.update(id) { $0.setParts(parts) } } }
+            }
+        case .all:
+            PartsSplitSheet(
+                title: String(localized: "Split the whole receipt"),
+                hint: String(localized: "Every item takes this split. You can still change each item afterwards."),
+                totalMinor: draft.sum(exponent: exp), initial: draft.currentWholeSplit(everyone: everyone),
+                people: active, exponent: exp, code: draft.currency
+            ) { parts in model.editReceipt { $0.splitAll(parts) } }
+        }
     }
 
     private func message(_ problem: ReceiptDraft.Problem) -> String {
@@ -272,6 +307,19 @@ private struct ReceiptReviewView: View {
         Binding(
             get: { draft.lines.first { $0.id == id }?[keyPath: key] ?? "" },
             set: { v in model.editReceipt { $0.update(id) { $0[keyPath: key] = v } } })
+    }
+}
+
+/// Which split sheet is open in the receipt review.
+private enum ReceiptSplitTarget: Identifiable {
+    case line(Int)
+    case all
+
+    var id: String {
+        switch self {
+        case .line(let i): "line-\(i)"
+        case .all: "all"
+        }
     }
 }
 
