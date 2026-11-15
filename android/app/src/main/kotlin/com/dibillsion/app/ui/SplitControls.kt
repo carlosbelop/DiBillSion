@@ -1,6 +1,21 @@
 package com.dibillsion.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.dibillsion.app.AppViewModel
+import com.dibillsion.app.Split
+import com.dibillsion.core.MemberDto
+import java.math.BigInteger
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -128,4 +143,79 @@ fun splitProblemText(problem: SplitProblem?, exponent: Int, currency: String): S
         val amount = Money.format(kotlin.math.abs(problem.missing), exponent, currency)
         stringResource(if (problem.missing > 0) R.string.error_amount_left else R.string.error_amount_over, amount)
     }
+}
+
+/**
+ * Equal, parts or percentage for an item, or for every item at once. [initial] is who takes
+ * part and with how many parts; [onApply] gets everyone in [people] (0 = not taking part).
+ * [totalMinor] only feeds the live preview of each share.
+ */
+@Composable
+fun PartsSplitDialog(
+    title: String,
+    totalMinor: Long?,
+    initial: Map<String, Long>,
+    people: List<MemberDto>,
+    exponent: Int,
+    currency: String,
+    vm: AppViewModel,
+    hint: String? = null,
+    onApply: (Map<String, Long>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val even = initial.values.distinct().size <= 1
+    var mode by remember { mutableStateOf(if (even) SplitMode.EQUAL else SplitMode.PARTS) }
+    var among by remember { mutableStateOf(initial.keys) }
+    val values = remember {
+        mutableStateMapOf<String, String>().apply {
+            if (!even) {
+                // Shown in their smallest form: 5000/3000/2000 reads as 5/3/2.
+                val g = initial.values.fold(0L) { acc, v -> BigInteger.valueOf(acc).gcd(BigInteger.valueOf(v)).toLong() }
+                    .coerceAtLeast(1)
+                initial.forEach { (id, p) -> put(id, (p / g).toString()) }
+            }
+        }
+    }
+    val split = Split.shares(mode, people.map { it.id }, among, values, totalMinor, exponent)
+    val preview = totalMinor?.takeIf { it > 0 && split.problem == null }?.let { vm.previewShares(it, split.shares) }.orEmpty()
+    val shareOf = split.shares.map { it.memberId }.zip(preview).toMap()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, maxLines = 2) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                hint?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                SplitModeSelector(mode, withAmounts = false) { mode = it }
+                people.forEach { m ->
+                    SplitRow(
+                        name = m.displayName,
+                        id = m.id,
+                        mode = mode,
+                        included = m.id in among,
+                        onIncluded = { on -> among = if (on) among + m.id else among - m.id },
+                        value = values[m.id].orEmpty(),
+                        onValue = { values[m.id] = it },
+                        share = shareOf[m.id]?.let { Money.format(it, exponent, currency) },
+                        unit = null,
+                        compact = true,
+                    )
+                }
+                splitProblemText(split.problem, exponent, currency)?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = split.problem == null,
+                onClick = {
+                    val chosen = split.shares.associate { it.memberId to (it.parts?.toLong() ?: 0L) }
+                    onApply(people.associate { it.id to (chosen[it.id] ?: 0L) })
+                },
+            ) { Text(stringResource(R.string.apply)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }

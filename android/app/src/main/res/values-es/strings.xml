@@ -176,4 +176,7 @@
     <string name="split_item_title">Repartir «%1$s»</string>
     <string name="custom_split">Reparto personalizado</string>
     <string name="apply">Aplicar</string>
+    <string name="split_all">Repartir todos los artículos…</string>
+    <string name="split_all_title">Repartir todo el ticket</string>
+    <string name="split_all_hint">Todos los artículos se reparten así. Después puedes cambiar cada uno por separado.</string>
 </resources>

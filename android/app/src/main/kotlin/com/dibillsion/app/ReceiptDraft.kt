@@ -4,15 +4,42 @@ import com.dibillsion.core.ItemDto
 import com.dibillsion.core.ScannedReceiptDto
 import com.dibillsion.core.ShareDto
 
-/** One editable line of a scanned receipt. [members] share it equally. */
+/**
+ * One editable line of a scanned receipt. [parts] says who shares it and how much each one
+ * takes (all 1 = equally); everyone in it has at least one part.
+ */
 data class ReceiptLine(
     val key: Long,
     val label: String,
     val amount: String,
-    val members: Set<String>,
+    val parts: Map<String, Long>,
     /** Discount folded into this line by the core (zero or negative), shown next to it. */
     val discountMinor: Long = 0,
-)
+) {
+    val members: Set<String> get() = parts.keys
+
+    /** Everyone takes the same part. */
+    val even: Boolean get() = parts.values.distinct().size <= 1
+
+    /** Exactly these people, equally. */
+    fun withMembers(members: Set<String>) = copy(parts = equal(members))
+
+    /**
+     * Adds or removes one person. An even line stays even; on a custom one the others keep
+     * their parts and a newcomer takes one, as on a saved item (ADR 0009).
+     */
+    fun toggle(id: String) = when {
+        id in parts -> copy(parts = parts - id)
+        even -> withMembers(members + id)
+        else -> copy(parts = parts + (id to 1L))
+    }
+
+    /** [split] with zeros (not taking part) dropped. */
+    fun withParts(split: Map<String, Long>) = copy(parts = split.filterValues { it > 0 })
+}
+
+/** Everyone in [members] with one part. */
+fun equal(members: Set<String>): Map<String, Long> = members.associateWith { 1L }
 
 /**
  * The review screen's state for a scanned receipt (SPEC flow 8). Lives in the view model so
@@ -28,6 +55,8 @@ data class ReceiptDraft(
     /** The total printed on the receipt, in [currency]. */
     val printedTotalMinor: Long?,
     val scansLeft: Int,
+    /** The last split chosen for the whole receipt, offered again when it's reopened. */
+    val wholeSplit: Map<String, Long>? = null,
 ) {
     enum class Problem { AMOUNT, NOBODY, EMPTY }
 
@@ -47,19 +76,32 @@ data class ReceiptDraft(
         }
     }
 
-    /** The expense's items: free lines are dropped, everyone else shares equally. */
+    /** The expense's items: free lines are dropped, the rest split by their parts. */
     fun items(exponent: Int, memberOrder: List<String>): List<ItemDto> =
         lines.zip(amounts(exponent)).mapNotNull { (line, amount) ->
             val minor = amount?.takeIf { it > 0 } ?: return@mapNotNull null
-            val shares = memberOrder.filter { it in line.members }.map { ShareDto(it, 1u, null) }
+            val shares = memberOrder.mapNotNull { id -> line.parts[id]?.let { ShareDto(id, it.toUInt(), null) } }
             ItemDto(line.label.trim().ifEmpty { null }, minor, shares)
         }
+
+    /**
+     * One split for the whole receipt: every line takes it, and each can still be changed
+     * afterwards. Zeros (not taking part) are dropped.
+     */
+    fun splitAll(split: Map<String, Long>): ReceiptDraft {
+        val parts = split.filterValues { it > 0 }
+        return copy(lines = lines.map { it.copy(parts = parts) }, wholeSplit = parts)
+    }
+
+    /** What the whole-receipt dialog starts from: the last one chosen, else what every line shares. */
+    fun currentWholeSplit(everyone: Set<String>): Map<String, Long> =
+        wholeSplit ?: lines.map { it.parts }.distinct().singleOrNull() ?: equal(everyone)
 
     fun update(key: Long, change: (ReceiptLine) -> ReceiptLine) = copy(lines = lines.map { if (it.key == key) change(it) else it })
 
     fun remove(key: Long) = copy(lines = lines.filterNot { it.key == key })
 
-    fun add(everyone: Set<String>) = copy(lines = lines + ReceiptLine((lines.maxOfOrNull { it.key } ?: -1) + 1, "", "", everyone))
+    fun add(everyone: Set<String>) = copy(lines = lines + ReceiptLine((lines.maxOfOrNull { it.key } ?: -1) + 1, "", "", wholeSplit ?: equal(everyone)))
 
     companion object {
         /** A draft from the core's reading, everyone on every line, paid by me if I'm known. */
@@ -77,7 +119,7 @@ data class ReceiptDraft(
             rate = "",
             dateDays = r.dateDays ?: today,
             lines = r.items.mapIndexed { i, item ->
-                ReceiptLine(i.toLong(), item.label, Money.plain(item.totalMinor, exponent), everyone, item.discountMinor)
+                ReceiptLine(i.toLong(), item.label, Money.plain(item.totalMinor, exponent), equal(everyone), item.discountMinor)
             },
             printedTotalMinor = r.totalMinor,
             scansLeft = r.scansLeftToday.toInt(),
