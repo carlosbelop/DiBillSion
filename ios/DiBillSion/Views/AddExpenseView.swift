@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// A new expense split equally between the people ticked, with each person's exact share
-/// computed live by the core.
+/// A new expense split equally, by parts, by percentage or by exact amounts, with each
+/// person's exact share computed live by the core.
 struct AddExpenseView: View {
     let d: GroupDetail
     @Environment(AppModel.self) private var model
@@ -13,6 +13,8 @@ struct AddExpenseView: View {
     @State private var payerId: String
     @State private var date = Date()
     @State private var among: Set<String>
+    @State private var mode: SplitMode = .equal
+    @State private var values: [String: String] = [:]
     @State private var confirmDiscard = false
     @State private var saving = false
 
@@ -30,15 +32,22 @@ struct AddExpenseView: View {
     private var foreign: Bool { code != d.group.baseCurrency }
     private var amountMinor: Int64? { exponent.flatMap { Money.parse(amount, exponent: $0) }.flatMap { $0 > 0 ? $0 : nil } }
     private var rateValue: String? { foreign ? Money.parseRate(rate) : nil }
-    /// Ticked people in member order, so the preview lines up with the list.
-    private var chosen: [String] { active.map(\.id).filter(among.contains) }
+    private var split: SplitResult {
+        Split.shares(mode: mode, members: active.map(\.id), among: among, values: values,
+                     totalMinor: amountMinor, exponent: exponent ?? 2)
+    }
+    /// Each person's share in the expense currency, exactly as the core will split it.
     private var preview: [String: Int64] {
-        guard let total = amountMinor, !chosen.isEmpty else { return [:] }
-        return Dictionary(uniqueKeysWithValues: zip(chosen, model.previewEqualSplit(total, among: chosen)))
+        let split = self.split
+        guard let total = amountMinor, split.problem == nil, !split.shares.isEmpty else { return [:] }
+        return Dictionary(zip(split.shares.map(\.memberId), model.previewShares(total, shares: split.shares)),
+                          uniquingKeysWith: { a, _ in a })
     }
     private var dirty: Bool { !title.isEmpty || !amount.isEmpty }
     private var canSave: Bool {
-        amountMinor != nil && !chosen.isEmpty && !payerId.isEmpty && (!foreign || rateValue != nil) && !saving
+        let split = self.split
+        return amountMinor != nil && split.problem == nil && !split.shares.isEmpty && !payerId.isEmpty
+            && (!foreign || rateValue != nil) && !saving
     }
 
     var body: some View {
@@ -74,34 +83,31 @@ struct AddExpenseView: View {
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                 }
                 Section {
+                    SplitModePicker(mode: $mode)
                     ForEach(active, id: \.id) { m in
-                        Button {
-                            if among.contains(m.id) { among.remove(m.id) } else { among.insert(m.id) }
-                        } label: {
-                            HStack {
-                                Image(systemName: among.contains(m.id) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(among.contains(m.id) ? Color.teal : .secondary)
-                                Text(m.id == d.meId ? String(localized: "\(m.displayName) (you)") : m.displayName)
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                if let share = preview[m.id], let exp = exponent {
-                                    Text(Money.format(share, exponent: exp, code: code))
-                                        .monospacedDigit().foregroundStyle(.secondary)
-                                }
-                            }
-                        }
+                        SplitPersonRow(
+                            name: m.id == d.meId ? String(localized: "\(m.displayName) (you)") : m.displayName,
+                            id: m.id, mode: mode, included: among.contains(m.id),
+                            toggle: { if among.contains(m.id) { among.remove(m.id) } else { among.insert(m.id) } },
+                            value: Binding(get: { values[m.id] ?? "" }, set: { values[m.id] = $0 }),
+                            share: exponent.flatMap { exp in preview[m.id].map { Money.format($0, exponent: exp, code: code) } },
+                            unit: code)
                     }
                 } header: {
                     HStack {
-                        Text("Split equally")
+                        Text("Split")
                         Spacer()
-                        Button(among.count == active.count ? LocalizedStringKey("No one") : LocalizedStringKey("Everyone")) {
-                            among = among.count == active.count ? [] : Set(active.map(\.id))
+                        if mode == .equal {
+                            Button(among.count == active.count ? LocalizedStringKey("No one") : LocalizedStringKey("Everyone")) {
+                                among = among.count == active.count ? [] : Set(active.map(\.id))
+                            }
+                            .font(.caption)
                         }
-                        .font(.caption)
                     }
                 } footer: {
-                    if chosen.isEmpty { Text("Pick at least one person.").foregroundStyle(Color.coral) }
+                    if let text = splitProblemText(split.problem, exponent: exponent ?? 2, code: code) {
+                        Text(text).foregroundStyle(Color.coral)
+                    }
                 }
             }
             .navigationTitle("New expense")
@@ -133,7 +139,7 @@ struct AddExpenseView: View {
         Task {
             let ok = await model.addExpense(
                 title: title, amountMinor: total, currency: code, fxRate: rateValue,
-                payerId: payerId, among: chosen, dateDays: DateDays.from(date))
+                payerId: payerId, shares: split.shares, dateDays: DateDays.from(date))
             saving = false
             if ok { dismiss() }
         }

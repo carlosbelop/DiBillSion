@@ -21,6 +21,16 @@
         }
       }
     },
+    "%@ left to assign.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faltan %@ por asignar."
+          }
+        }
+      }
+    },
     "%@ paid back %@": {
       "localizations": {
         "es": {
@@ -47,6 +57,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ te paga"
+          }
+        }
+      }
+    },
+    "%@ too much.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sobran %@."
           }
         }
       }
@@ -364,6 +384,26 @@
         }
       }
     },
+    "Amounts": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importes"
+          }
+        }
+      }
+    },
+    "Apply": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplicar"
+          }
+        }
+      }
+    },
     "Archive group": {
       "localizations": {
         "es": {
@@ -410,6 +450,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cambiar quién soy"
+          }
+        }
+      }
+    },
+    "Check the numbers: whole parts, percentages up to 100.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisa los números: partes enteras y porcentajes hasta 100."
           }
         }
       }
@@ -520,6 +570,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Moneda"
+          }
+        }
+      }
+    },
+    "Custom split": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reparto personalizado"
           }
         }
       }
@@ -660,6 +720,16 @@
         }
       }
     },
+    "Equally": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A partes iguales"
+          }
+        }
+      }
+    },
     "Event": {
       "localizations": {
         "es": {
@@ -686,6 +756,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cada artículo necesita al menos una persona."
+          }
+        }
+      }
+    },
+    "Every item takes this split. You can still change each item afterwards.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos los artículos se reparten así. Después puedes cambiar cada uno por separado."
           }
         }
       }
@@ -1000,6 +1080,16 @@
         }
       }
     },
+    "One split for the whole receipt. You can still change each item afterwards.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un reparto para todo el ticket. Después puedes cambiar cada artículo por separado."
+          }
+        }
+      }
+    },
     "Only the person who shared this group can do that.": {
       "localizations": {
         "es": {
@@ -1036,6 +1126,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pagado por %@"
+          }
+        }
+      }
+    },
+    "Parts": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partes"
           }
         }
       }
@@ -1280,6 +1380,16 @@
         }
       }
     },
+    "Split": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reparto"
+          }
+        }
+      }
+    },
     "Split by exact amounts: change it from the editor.": {
       "localizations": {
         "es": {
@@ -1300,12 +1410,52 @@
         }
       }
     },
+    "Split every item…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repartir todos los artículos…"
+          }
+        }
+      }
+    },
+    "Split the whole receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repartir todo el ticket"
+          }
+        }
+      }
+    },
     "Split your first bill": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Reparte tu primera cuenta"
+          }
+        }
+      }
+    },
+    "Split “%@”": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repartir «%@»"
+          }
+        }
+      }
+    },
+    "Split…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repartir…"
           }
         }
       }

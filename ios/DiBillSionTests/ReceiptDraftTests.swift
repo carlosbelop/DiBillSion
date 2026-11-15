@@ -63,6 +63,40 @@ final class ReceiptDraftTests: XCTestCase {
         XCTAssertEqual(d.problem(exponent: 2), .amount)
     }
 
+    func testLineSplitByParts() {
+        var d = draft()
+        d.update(0) { $0.setParts(["a": 2, "b": 1, "c": 0]) }
+        XCTAssertEqual(d.lines[0].members, ["a", "b"])
+        XCTAssertFalse(d.lines[0].even)
+        let item = d.items(exponent: 2, memberOrder: ["c", "b", "a"])[0]
+        XCTAssertEqual(item.shares.map(\.memberId), ["b", "a"])
+        XCTAssertEqual(item.shares.map(\.parts), [1, 2])
+        // On a custom line the others keep their parts; a newcomer takes one.
+        var line = d.lines[0]
+        line.toggle("c")
+        XCTAssertEqual(line.parts, ["a": 2, "b": 1, "c": 1])
+        line.toggle("b")
+        XCTAssertEqual(line.parts, ["a": 2, "c": 1])
+        // An even line stays even.
+        var even = draft().lines[0]
+        even.toggle("c")
+        XCTAssertEqual(even.parts, ["a": 1, "b": 1])
+    }
+
+    func testWholeReceiptSplitAppliesToEveryLineAndEachCanChange() {
+        var d = draft()
+        XCTAssertEqual(d.currentWholeSplit(everyone: everyone), ["a": 1, "b": 1, "c": 1])
+        d.splitAll(["a": 50, "b": 30, "c": 0])
+        XCTAssertEqual(d.lines.map(\.parts), Array(repeating: ["a": 50, "b": 30], count: 3))
+        XCTAssertEqual(d.currentWholeSplit(everyone: everyone), ["a": 50, "b": 30])
+        var added = d
+        added.add(everyone: everyone)
+        XCTAssertEqual(added.lines.last?.parts, ["a": 50, "b": 30])
+        d.update(1) { $0.members = ["c"] }
+        XCTAssertEqual(d.lines[1].parts, ["c": 1])
+        XCTAssertEqual(d.lines[0].parts, ["a": 50, "b": 30])
+    }
+
     func testTitleCaseAndPlainAmounts() {
         XCTAssertEqual(ReceiptDraft.titleCase("AHORRAMAS"), "Ahorramas")
         XCTAssertEqual(ReceiptDraft.titleCase(" RELAIS ODEON "), "Relais Odeon")
