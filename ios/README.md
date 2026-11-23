@@ -26,10 +26,22 @@ setting (empty until the beta server is up, which turns invites off).
 
 ## Without a Mac
 
-The Swift files that don't use SwiftUI (`Money`, `SyncTransport`, `AppModel`) and the tests
-also compile on Linux with the swift.org toolchain, linked against `target/debug/libdibill_core.so`
-and the bindings from `scripts/gen-bindings.sh "" swift`. Handy for quick checks; the CI run on
-macOS is the reference.
+The Swift files that use neither SwiftUI nor Apple-only Foundation APIs (`Money`, `Split`,
+`ReceiptDraft`, `SyncTransport`) type-check on Linux with a swift.org toolchain (Swift 6.2,
+unpacked by hand into `~/.local/share/dibillsion-tools/swift`, with the `libncurses6`/`libtinfo6`
+packages it needs in `swiftlibs`; `scripts/setup-ubuntu.sh` doesn't install it):
+
+```bash
+scripts/gen-bindings.sh target/bindings/swift swift
+cp target/bindings/swift/dibill_coreFFI.modulemap target/bindings/swift/module.modulemap
+T=~/.local/share/dibillsion-tools
+LD_LIBRARY_PATH=$T/swiftlibs/usr/lib/x86_64-linux-gnu $T/swift/usr/bin/swiftc -typecheck \
+  -I target/bindings/swift target/bindings/swift/dibill_core.swift \
+  ios/DiBillSion/{Money,Split,ReceiptDraft,SyncTransport}.swift
+```
+
+`AppModel` uses `String(localized:)`, which the Linux Foundation lacks. Handy for quick checks;
+the CI run on macOS is the reference.
 
 ## CI
 
