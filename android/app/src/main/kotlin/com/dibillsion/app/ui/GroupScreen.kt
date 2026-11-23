@@ -80,7 +80,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -122,6 +124,8 @@ fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
     var adding by rememberSaveable { mutableStateOf(false) }
     var viewing by rememberSaveable { mutableStateOf<String?>(null) }
     var people by rememberSaveable { mutableStateOf(false) }
+    // The open tab survives a trip to an expense or to Participants and back.
+    var tab by rememberSaveable(d.group.id) { mutableIntStateOf(0) }
     val context = LocalContext.current
     val inviteText = state.invite?.let { stringResource(R.string.invite_message, it.groupName, it.link, it.code) }
     LaunchedEffect(inviteText) {
@@ -159,7 +163,7 @@ fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
             Editor.RECEIPT -> (state.scan as? ScanState.Review)?.let { ReceiptReviewScreen(d, it.draft, vm) }
             Editor.DETAIL -> viewed?.let { ExpenseDetailScreen(d, it, vm, onClose = { viewing = null }) }
             Editor.PEOPLE -> PeopleScreen(d, vm, onClose = { people = false })
-            Editor.NONE -> GroupBody(d, state, vm, onAdd = { adding = true }, onOpen = { viewing = it }, onPeople = { people = true })
+            Editor.NONE -> GroupBody(d, state, vm, tab, onTab = { tab = it }, onAdd = { adding = true }, onOpen = { viewing = it }, onPeople = { people = true })
         }
     }
     ErrorDialog(state.error, vm::dismissError)
@@ -171,11 +175,14 @@ private fun GroupBody(
     d: GroupDetail,
     state: UiState,
     vm: AppViewModel,
+    tab: Int,
+    onTab: (Int) -> Unit,
     onAdd: () -> Unit,
     onOpen: (String) -> Unit,
     onPeople: () -> Unit,
 ) {
-    val pager = rememberPagerState { Tabs.size }
+    val pager = rememberPagerState(initialPage = tab) { Tabs.size }
+    LaunchedEffect(pager) { snapshotFlow { pager.currentPage }.collect(onTab) }
     val scope = rememberCoroutineScope()
     var menu by remember { mutableStateOf(false) }
     var deletingGroup by remember { mutableStateOf(false) }
@@ -732,7 +739,7 @@ private fun MySummary(d: GroupDetail, onOpen: (String) -> Unit, onPickMe: () -> 
                 StatCard(
                     stringResource(R.string.my_spent),
                     Money.format(s.spentMinor, d.exponent, s.currency),
-                    groupTotal,
+                    pluralStringResource(R.plurals.in_expenses_count, s.involved.size, s.involved.size),
                     Modifier.weight(1f).fillMaxHeight(),
                     primary = true,
                 )

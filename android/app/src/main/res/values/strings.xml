@@ -193,4 +193,8 @@
     <string name="your_part">Your part</string>
     <string name="percent_value">%1$s%%</string>
     <string name="summary_pick_me">Tell us which person you are to see what you\'ve spent and the expenses you\'re in.</string>
+    <plurals name="in_expenses_count">
+        <item quantity="one">in %1$d expense</item>
+        <item quantity="other">in %1$d expenses</item>
+    </plurals>
 </resources>

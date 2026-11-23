@@ -192,4 +192,8 @@
     <string name="your_part">Tu parte</string>
     <string name="percent_value">%1$s %%</string>
     <string name="summary_pick_me">Indica quién eres para ver cuánto has gastado y los gastos en los que participas.</string>
+    <plurals name="in_expenses_count">
+        <item quantity="one">en %1$d gasto</item>
+        <item quantity="other">en %1$d gastos</item>
+    </plurals>
 </resources>
