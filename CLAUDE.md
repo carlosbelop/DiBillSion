@@ -8,6 +8,7 @@ DiBillSion: group expense splitting for Android and iOS, with receipt scanning (
 Shared Rust core + native UI (Compose / SwiftUI) via UniFFI, Rust backend (axum + PostgreSQL).
 The full plan is in `docs/PLAN.md`, decisions in `docs/adr/`, the functional spec in `docs/SPEC.md`.
 **Current state and backlog: `docs/STATUS.md`. Read it at the start of every session and keep it updated.**
+What's left before production, in order: `docs/TODO.md`.
 
 ## Autonomy
 
