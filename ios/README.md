@@ -33,9 +33,9 @@ macOS is the reference.
 
 ## CI
 
-While the repository is private, macOS minutes are expensive, so the workflow runs only when a
-PR has the `macos` label or on manual dispatch. Once the repository is public it runs on every
-PR and push that touches iOS or the core.
+The workflow runs on every PR and every push to `main` that touches `ios/`, `crates/`, the Cargo
+files or the binding scripts, and on manual dispatch. It isn't a required check, so a PR that
+only changes the core still needs its iOS run to be green before merging.
 
 ## TestFlight
 

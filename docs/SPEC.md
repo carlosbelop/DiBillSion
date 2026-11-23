@@ -2,8 +2,9 @@
 
 > What **DiBillSion** does: features, flows, data model and calculation rules (milestone M1).
 >
-> Status: **v2, approved by the owner on 2026-10-25** (closes M1). Items marked **(open)** are
-> product decisions still to make. Changes from now on go through a PR that bumps the version.
+> Status: **v2.1** (v2 approved by the owner on 2026-10-25, closes M1; v2.1 adds the percentage
+> split from the owner's tester feedback of 2026-11-10). Items marked **(open)** are product
+> decisions still to make. Changes from now on go through a PR that bumps the version.
 
 ## 1. Features
 
@@ -18,8 +19,9 @@
   - *Income*: one member received money that belongs to some members (a refund, a deposit
     returned, selling shared stuff).
   - *Transfer*: one member paid another back (a reimbursement).
-- **Split modes** for expenses and incomes: equally, by parts (integer weights) and by exact
-  amounts. Each member can be included or excluded per transaction. A mixed mode (some exact
+- **Split modes** for expenses and incomes: equally, by parts (integer weights), by percentage
+  and by exact amounts. The same modes apply to each receipt item and to the whole receipt at
+  once. Each member can be included or excluded per transaction. A mixed mode (some exact
   amounts, the rest by parts) is supported by the data model; the UI may come later.
 - **Line items.** Every expense is a list of items, each split on its own. A manual expense
   is a single item. Receipt scanning (M7) only has to fill the items.
@@ -132,6 +134,11 @@ language, locale or member names. Ties are broken by member id.
   The result never depends on names, language or the order members were listed in.
 - **Exact-amount splits** must add up to the item total; the editor shows the difference and
   blocks saving until it is zero.
+- **Percentage splits** are parts in hundredths of a percent (12.5 % → 1250), reduced to their
+  smallest form (50/30/20 % → 5/3/2), so they go through the same largest-remainder split and
+  nothing new is stored or synced. Percentages take at most two decimals and must add up to
+  exactly 100 %; the editor shows what's left and blocks saving until then.
+  10.00 € split 33.33/33.33/33.34 % → parts 3333:3333:3334 → 3.33, 3.33, 3.34.
 - **Mixed splits:** fixed amounts first; the remainder (never negative) is split by parts.
 - **Display.** A transaction in a foreign currency shows both the original amount and the converted
   amount, in lists and in details. Amount fields accept only as many decimals as the currency has.
