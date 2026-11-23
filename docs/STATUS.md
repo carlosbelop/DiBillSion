@@ -16,6 +16,8 @@ Last updated: 2026-11-23
 - `dibill-domain`: ISO 4217 `Currency` + decimal FX (`convert`, `convert_items`, ADR 0002), line-item expenses, transfers in balances, criterion baseline ([BENCHMARKS.md](BENCHMARKS.md)).
 - Claude project skills: `.claude/skills/add-feature` (the path a change takes through the layers, with the sync-compatibility traps) and `.claude/skills/device-check` (Pixel over adb: install, screenshots, Spanish/dark mode, receipt scan). ([#135](https://github.com/carlosbelop/DiBillSion/issues/135))
 
+The road to production (accounts, editing and history, security, legal review, store betas) is in [TODO.md](TODO.md).
+
 ## Next sessions (from 2026-10-31), in order — see PLAN §4.2
 
 1. ~~**P0 public-repo prep**~~ done (current files cleaned, history kept; issue/PR texts edited). The owner switches the repo to public.
