@@ -3,7 +3,7 @@
 > Living document. Every session reads it first and updates it in the same PR as the work it describes.
 > Milestones are defined in [PLAN.md §4](PLAN.md).
 
-Last updated: 2026-11-15
+Last updated: 2026-11-23
 
 ## Where we are
 
@@ -14,6 +14,7 @@ Last updated: 2026-11-15
 - Repo scaffold: Cargo workspace, strict lints, CI (fmt, clippy, nextest + coverage, cargo-deny, no-binaries/secrets guard), Dependabot, ADR 0001.
 - `dibill-domain`: `split_weighted` (largest remainder, deterministic), `balances`, `settle_up` (greedy), with unit and property tests.
 - `dibill-domain`: ISO 4217 `Currency` + decimal FX (`convert`, `convert_items`, ADR 0002), line-item expenses, transfers in balances, criterion baseline ([BENCHMARKS.md](BENCHMARKS.md)).
+- Claude project skills: `.claude/skills/add-feature` (the path a change takes through the layers, with the sync-compatibility traps) and `.claude/skills/device-check` (Pixel over adb: install, screenshots, Spanish/dark mode, receipt scan). ([#135](https://github.com/carlosbelop/DiBillSion/issues/135))
 
 ## Next sessions (from 2026-10-31), in order — see PLAN §4.2
 
@@ -135,6 +136,8 @@ The dev password is local-only; never reuse it for a hosted database.
 - Remote Control (and mobile push) is disabled by the owner's organization policy, so escalations go in the session's final message and in this file.
 - WSL appends the Windows `PATH`, which includes Windows Node. Always make sure nvm's Node comes first (`source ~/.nvm/nvm.sh`).
 - Since the repo is public (2026-10-31) the `Protect main` ruleset is enforced: PR only, squash only, required checks (Rust, Dependencies, No binaries / secrets), verified signatures, linear history.
+- `ReceiptDraft` (receipt review state) is written twice, in Kotlin and Swift, with mirrored tests; candidate to move into the Rust core so the platforms can't drift.
+- No Kotlin or Swift linter (ktlint/detekt, SwiftLint/swift-format) yet; only Rust is linted.
 
 ## Needs the owner (open requests)
 - **TestFlight testers**: one friend is an internal tester; add the other flatmates the same way when they want it ([ios/README.md § TestFlight](../ios/README.md#testflight), step 5).

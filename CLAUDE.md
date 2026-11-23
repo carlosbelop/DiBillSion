@@ -58,6 +58,7 @@ The owner (`carlosbelop`) wants sessions to **implement and develop autonomously
   ```
 - Add tests with every logic change. Prefer `proptest` for money invariants (parts sum to total, balances sum to zero).
 - Record architecture changes as a new ADR in `docs/adr/`.
+- Project skills in `.claude/skills/`: **`add-feature`** (how a change goes through domain → store/sync → core → Android + iOS → strings → tests → docs) and **`device-check`** (trying it on the Pixel over adb). Load them before changing app behaviour or UI, and keep them updated when the layers or tools change.
 
 ## Environment
 
