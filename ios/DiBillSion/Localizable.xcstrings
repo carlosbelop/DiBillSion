@@ -800,6 +800,26 @@
         }
       }
     },
+    "Expenses I paid": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gastos pagados por mí"
+          }
+        }
+      }
+    },
+    "Expenses I'm in": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gastos en los que participo"
+          }
+        }
+      }
+    },
     "Expenses are split between the people in the group, and this group has nobody yet.": {
       "localizations": {
         "es": {
@@ -956,6 +976,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Más opciones"
+          }
+        }
+      }
+    },
+    "My summary": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mi resumen"
           }
         }
       }
@@ -1126,6 +1156,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pagado por %@"
+          }
+        }
+      }
+    },
+    "Paid by %@ · %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pagado por %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "Participants": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Participantes"
           }
         }
       }
@@ -1530,6 +1580,16 @@
         }
       }
     },
+    "Tell us which person you are to see what you've spent and the expenses you're in.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indica quién eres para ver cuánto has gastado y los gastos en los que participas."
+          }
+        }
+      }
+    },
     "That invite link isn’t valid any more. Ask for a new one.": {
       "localizations": {
         "es": {
@@ -1770,6 +1830,16 @@
         }
       }
     },
+    "You haven't paid for anything yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no has pagado ningún gasto."
+          }
+        }
+      }
+    },
     "You owe %@": {
       "localizations": {
         "es": {
@@ -1786,6 +1856,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pagas a %@"
+          }
+        }
+      }
+    },
+    "You're in every item": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Participas en todos los elementos"
+          }
+        }
+      }
+    },
+    "You're in some items (%lld of %lld)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Participas en algunos elementos (%1$lld de %2$lld)"
+          }
+        }
+      }
+    },
+    "You're not in any expense yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no participas en ningún gasto."
+          }
+        }
+      }
+    },
+    "You've spent": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Has gastado"
           }
         }
       }
@@ -1816,6 +1926,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tu nombre"
+          }
+        }
+      }
+    },
+    "Your part": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu parte"
+          }
+        }
+      }
+    },
+    "Your share of the group": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu parte del grupo"
+          }
+        }
+      }
+    },
+    "in %lld expenses": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "in %lld expense"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "in %lld expenses"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "en %lld gasto"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "en %lld gastos"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "of %@ in total": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "de %@ en total"
           }
         }
       }
