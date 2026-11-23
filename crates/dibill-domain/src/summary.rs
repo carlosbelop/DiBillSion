@@ -1,4 +1,4 @@
-//! One member's view of a group's spending ("My summary", SPEC §7).
+//! One member's view of a group's spending ("My summary", SPEC §1.1 and §4).
 
 use crate::{Expense, MemberId, Minor, Portion, SplitError, split_item};
 

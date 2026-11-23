@@ -495,7 +495,7 @@ impl Core {
             .collect()
     }
 
-    /// `member_id`'s spending in the group (the "My summary" tab, SPEC §7).
+    /// `member_id`'s spending in the group (the "My summary" tab, SPEC §1.1 and §4).
     ///
     /// # Errors
     /// [`CoreError::NotFound`] for an unknown group; [`CoreError::InvalidInput`] for a bad id.
