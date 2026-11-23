@@ -3,6 +3,7 @@ package com.dibillsion.app.ui
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +18,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +29,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -34,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Image
@@ -44,6 +48,7 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -75,7 +80,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -101,20 +108,24 @@ import com.dibillsion.core.MemberDto
 import com.dibillsion.core.SuggestionDto
 import com.dibillsion.core.TransactionDto
 import com.dibillsion.core.TransactionKindDto
+import com.dibillsion.core.SummaryLineDto
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlin.math.abs
 
-private enum class Editor { NONE, DETAIL, EXPENSE, READING, RECEIPT }
+private enum class Editor { NONE, PEOPLE, DETAIL, EXPENSE, READING, RECEIPT }
 
-private val Tabs = listOf(R.string.tab_expenses, R.string.tab_balances, R.string.tab_people)
+private val Tabs = listOf(R.string.tab_expenses, R.string.tab_balances, R.string.tab_my_summary)
 
 @Composable
 fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
     var adding by rememberSaveable { mutableStateOf(false) }
     var viewing by rememberSaveable { mutableStateOf<String?>(null) }
+    var people by rememberSaveable { mutableStateOf(false) }
+    // The open tab survives a trip to an expense or to Participants and back.
+    var tab by rememberSaveable(d.group.id) { mutableIntStateOf(0) }
     val context = LocalContext.current
     val inviteText = state.invite?.let { stringResource(R.string.invite_message, it.groupName, it.link, it.code) }
     LaunchedEffect(inviteText) {
@@ -131,6 +142,7 @@ fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
         null -> when {
             adding -> Editor.EXPENSE
             viewed != null -> Editor.DETAIL
+            people -> Editor.PEOPLE
             else -> Editor.NONE
         }
     }
@@ -150,7 +162,8 @@ fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
             Editor.READING -> ReadingReceiptScreen(onCancel = vm::closeScan)
             Editor.RECEIPT -> (state.scan as? ScanState.Review)?.let { ReceiptReviewScreen(d, it.draft, vm) }
             Editor.DETAIL -> viewed?.let { ExpenseDetailScreen(d, it, vm, onClose = { viewing = null }) }
-            Editor.NONE -> GroupBody(d, state, vm, onAdd = { adding = true }, onOpen = { viewing = it })
+            Editor.PEOPLE -> PeopleScreen(d, vm, onClose = { people = false })
+            Editor.NONE -> GroupBody(d, state, vm, tab, onTab = { tab = it }, onAdd = { adding = true }, onOpen = { viewing = it }, onPeople = { people = true })
         }
     }
     ErrorDialog(state.error, vm::dismissError)
@@ -158,10 +171,19 @@ fun GroupScreen(d: GroupDetail, state: UiState, vm: AppViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: () -> Unit, onOpen: (String) -> Unit) {
-    val pager = rememberPagerState { Tabs.size }
+private fun GroupBody(
+    d: GroupDetail,
+    state: UiState,
+    vm: AppViewModel,
+    tab: Int,
+    onTab: (Int) -> Unit,
+    onAdd: () -> Unit,
+    onOpen: (String) -> Unit,
+    onPeople: () -> Unit,
+) {
+    val pager = rememberPagerState(initialPage = tab) { Tabs.size }
+    LaunchedEffect(pager) { snapshotFlow { pager.currentPage }.collect(onTab) }
     val scope = rememberCoroutineScope()
-    var addingPerson by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var deletingGroup by remember { mutableStateOf(false) }
     // Ask once per visit when nobody is "me" yet; it can be changed from the menu.
@@ -176,7 +198,6 @@ private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: (
             onDismiss = { deletingGroup = false },
         )
     }
-    if (addingPerson) AddPersonDialog(onAdd = vm::addMember, onDismiss = { addingPerson = false })
     if (pickingMe) {
         WhoAmIDialog(d, onPick = { vm.setMe(it) }, onDismiss = { pickingMe = false })
     }
@@ -206,6 +227,14 @@ private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: (
                 actions = {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more)) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.participants)) },
+                            leadingIcon = { Icon(Icons.Filled.Group, null) },
+                            onClick = {
+                                menu = false
+                                onPeople()
+                            },
+                        )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.invite_people)) },
                             leadingIcon = { Icon(Icons.Filled.Share, null) },
@@ -262,11 +291,6 @@ private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: (
                         text = { Text(stringResource(R.string.add_expense)) },
                     )
                 }
-                2 -> ExtendedFloatingActionButton(
-                    onClick = { addingPerson = true },
-                    icon = { Icon(Icons.Filled.Add, null) },
-                    text = { Text(stringResource(R.string.add_person)) },
-                )
             }
         },
     ) { padding ->
@@ -286,7 +310,7 @@ private fun GroupBody(d: GroupDetail, state: UiState, vm: AppViewModel, onAdd: (
                     when (page) {
                         0 -> Transactions(d, vm, onAdd, onOpen)
                         1 -> Balances(d, vm, onPickMe = { pickingMe = true })
-                        else -> People(d, vm)
+                        else -> MySummary(d, onOpen, onPickMe = { pickingMe = true })
                     }
                 }
             }
@@ -631,6 +655,34 @@ private fun BalanceBar(fraction: Float, modifier: Modifier = Modifier) {
     }
 }
 
+/** Everyone in the group, from the menu's "Participants": add, (de)activate, remove. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PeopleScreen(d: GroupDetail, vm: AppViewModel, onClose: () -> Unit) {
+    BackHandler(onBack = onClose)
+    var addingPerson by rememberSaveable { mutableStateOf(false) }
+    if (addingPerson) AddPersonDialog(onAdd = vm::addMember, onDismiss = { addingPerson = false })
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.participants)) },
+                navigationIcon = {
+                    IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+                },
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { addingPerson = true },
+                icon = { Icon(Icons.Filled.Add, null) },
+                text = { Text(stringResource(R.string.add_person)) },
+            )
+        },
+    ) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) { People(d, vm) }
+    }
+}
+
 @Composable
 private fun People(d: GroupDetail, vm: AppViewModel) {
     var deleting by remember { mutableStateOf<MemberDto?>(null) }
@@ -660,6 +712,135 @@ private fun People(d: GroupDetail, vm: AppViewModel) {
             )
         }
     }
+}
+
+/** My spending in the group and the expenses I paid or am in ("My summary" tab). */
+@Composable
+private fun MySummary(d: GroupDetail, onOpen: (String) -> Unit, onPickMe: () -> Unit) {
+    val s = d.summary
+    LazyColumn(Modifier.fillMaxSize().bottomBounce(), contentPadding = PaddingValues(bottom = 32.dp)) {
+        if (d.meId == null || s == null) {
+            item(key = "pick-me") {
+                OutlinedCard(Modifier.fillMaxWidth().padding(16.dp)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(stringResource(R.string.summary_pick_me), style = MaterialTheme.typography.bodyLarge)
+                        Button(onClick = onPickMe) { Text(stringResource(R.string.who_are_you)) }
+                    }
+                }
+            }
+            return@LazyColumn
+        }
+        item(key = "stats") {
+            val groupTotal = stringResource(R.string.of_group_total, Money.format(s.groupSpentMinor, d.exponent, s.currency))
+            Row(
+                Modifier.fillMaxWidth().padding(16.dp).height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                StatCard(
+                    stringResource(R.string.my_spent),
+                    Money.format(s.spentMinor, d.exponent, s.currency),
+                    pluralStringResource(R.plurals.in_expenses_count, s.involved.size, s.involved.size),
+                    Modifier.weight(1f).fillMaxHeight(),
+                    primary = true,
+                )
+                StatCard(
+                    stringResource(R.string.my_share_of_group),
+                    stringResource(R.string.percent_value, Money.percent(s.shareBasisPoints.toLong())),
+                    groupTotal,
+                    Modifier.weight(1f).fillMaxHeight(),
+                )
+            }
+        }
+        summarySection("paid", R.string.expenses_i_paid, R.string.expenses_i_paid_empty, s.paid, d, onOpen)
+        summarySection("in", R.string.expenses_im_in, R.string.expenses_im_in_empty, s.involved, d, onOpen)
+    }
+}
+
+private fun LazyListScope.summarySection(
+    key: String,
+    title: Int,
+    empty: Int,
+    lines: List<SummaryLineDto>,
+    d: GroupDetail,
+    onOpen: (String) -> Unit,
+) {
+    item(key = "$key-header") { SectionHeader(stringResource(title)) }
+    if (lines.isEmpty()) {
+        item(key = "$key-empty") {
+            Text(
+                stringResource(empty),
+                Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    items(lines, key = { "$key-${it.transactionId}" }) { line ->
+        d.transactions.firstOrNull { it.id == line.transactionId }?.let { t ->
+            SummaryRow(d, t, line, Modifier.animateItem().clickable { onOpen(line.transactionId) })
+        }
+    }
+}
+
+@Composable
+private fun StatCard(label: String, value: String, note: String, modifier: Modifier, primary: Boolean = false) {
+    Card(
+        modifier,
+        colors = if (primary) {
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        } else {
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        },
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, style = MaterialTheme.typography.labelLarge)
+            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(note, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/** One expense in "My summary": a whole receipt is one row, with how many of its items are mine. */
+@Composable
+private fun SummaryRow(d: GroupDetail, t: TransactionDto, line: SummaryLineDto, modifier: Modifier) {
+    val items = line.items.toInt()
+    val itemsIn = line.itemsIn.toInt()
+    ListItem(
+        modifier = modifier,
+        leadingContent = { IconBadge(if (items > 1) Icons.AutoMirrored.Filled.ReceiptLong else Icons.Filled.ShoppingCart) },
+        headlineContent = { Text(t.title, maxLines = 1) },
+        supportingContent = {
+            Column {
+                Text("${stringResource(R.string.paid_by, d.name(t.payerId))} · ${dayLabel(t.dateDays)}")
+                if (items > 1) {
+                    Text(
+                        if (itemsIn >= items) {
+                            stringResource(R.string.items_in_all)
+                        } else {
+                            stringResource(R.string.items_in_some, itemsIn, items)
+                        },
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        },
+        trailingContent = {
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    Money.format(line.myShareMinor, d.exponent, d.group.baseCurrency),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    stringResource(R.string.your_part),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+    )
 }
 
 @Composable

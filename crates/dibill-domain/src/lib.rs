@@ -8,6 +8,7 @@ mod currency;
 mod member;
 mod settle;
 mod split;
+mod summary;
 
 pub use balance::{Expense, ExpenseItem, ExpenseKind, balances};
 pub use currency::{Currency, CurrencyError, FxError, FxRate, convert, convert_items};
@@ -17,6 +18,7 @@ pub use member::{
 pub use rust_decimal::Decimal;
 pub use settle::{Transfer, settle_up};
 pub use split::{ItemShare, Portion, SplitError, allocate, split_item, split_weighted};
+pub use summary::{MemberShare, basis_points, member_share};
 
 use uuid::Uuid;
 

@@ -1,8 +1,8 @@
 import SwiftUI
 
-private enum Tab: Hashable { case expenses, balances, people }
+private enum Tab: Hashable { case expenses, balances, summary }
 
-/// One group: expenses, balances (with settle) and people, plus sharing and "who am I".
+/// One group: expenses, balances (with settle) and my summary; people, sharing and "who am I" in the menu.
 struct GroupView: View {
     let groupId: String
     @Environment(AppModel.self) private var model
@@ -12,6 +12,7 @@ struct GroupView: View {
     @State private var askedMe = false
     @State private var confirmDelete = false
     @State private var nobodyYet = false
+    @State private var showingPeople = false
 
     var body: some View {
         Group {
@@ -32,7 +33,7 @@ struct GroupView: View {
             Picker("", selection: $tab) {
                 Text("Expenses").tag(Tab.expenses)
                 Text("Balances").tag(Tab.balances)
-                Text("People").tag(Tab.people)
+                Text("My summary").tag(Tab.summary)
             }
             .pickerStyle(.segmented)
             .listRowBackground(Color.clear)
@@ -40,7 +41,7 @@ struct GroupView: View {
             switch tab {
             case .expenses: ExpensesSection(d: d)
             case .balances: BalancesSection(d: d)
-            case .people: PeopleSection(d: d)
+            case .summary: SummarySection(d: d) { choosingMe = true }
             }
         }
         .listStyle(.insetGrouped)
@@ -54,7 +55,7 @@ struct GroupView: View {
         // group opened right after creating it.
         .safeAreaInset(edge: .bottom) { actions(d) }
         .alert("Add people first", isPresented: $nobodyYet) {
-            Button("Add people") { tab = .people }
+            Button("Add people") { showingPeople = true }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Expenses are split between the people in the group, and this group has nobody yet.")
@@ -65,6 +66,7 @@ struct GroupView: View {
             ReceiptFlowView()
         }
         .sheet(isPresented: $choosingMe) { WhoAmIView(d: d) }
+        .sheet(isPresented: $showingPeople) { ParticipantsView() }
         .sheet(item: Binding(get: { model.invite }, set: { model.invite = $0 })) { invite in
             ShareSheet(items: [String(localized: "Join “\(invite.groupName)” on DiBillSion: \(invite.link) (invite code: \(invite.code))")])
                 .presentationDetents([.medium, .large])
@@ -132,6 +134,9 @@ struct GroupView: View {
 
     private func menu(_ d: GroupDetail) -> some View {
         Menu {
+            Button { showingPeople = true } label: {
+                Label("Participants", systemImage: "person.2")
+            }
             Button { Task { await model.shareGroup() } } label: {
                 Label("Invite people", systemImage: "person.crop.circle.badge.plus")
             }
@@ -355,7 +360,127 @@ private struct BalanceBar: View {
     }
 }
 
+// MARK: - My summary
+
+/// What I spent in the group and the expenses I paid or am in; a receipt is one row.
+private struct SummarySection: View {
+    let d: GroupDetail
+    let pickMe: () -> Void
+    @State private var opened: OpenedTransaction?
+
+    var body: some View {
+        Group {
+            if d.meId != nil, let s = d.summary {
+                Section {
+                    HStack(spacing: 12) {
+                        StatTile(label: "You've spent", value: d.format(s.spentMinor),
+                                 note: Text("in \(s.involved.count) expenses"), prominent: true)
+                        StatTile(label: "Your share of the group", value: Money.percent(s.shareBasisPoints),
+                                 note: Text("of \(d.format(s.groupSpentMinor)) in total"))
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                }
+                lines("Expenses I paid", empty: "You haven't paid for anything yet.", s.paid)
+                lines("Expenses I'm in", empty: "You're not in any expense yet.", s.involved)
+            } else {
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Tell us which person you are to see what you've spent and the expenses you're in.")
+                        Button("Who are you?", action: pickMe).buttonStyle(.borderedProminent)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .sheet(item: $opened) { o in ExpenseDetailView(transactionId: o.id) }
+    }
+
+    private func lines(_ title: LocalizedStringKey, empty: LocalizedStringKey, _ list: [SummaryLineDto]) -> some View {
+        Section(title) {
+            if list.isEmpty {
+                Text(empty).foregroundStyle(.secondary)
+            }
+            ForEach(list, id: \.transactionId) { line in
+                if let t = d.transactions.first(where: { $0.id == line.transactionId }) {
+                    Button { opened = OpenedTransaction(id: line.transactionId) } label: { row(t, line) }
+                        .foregroundStyle(.primary)
+                }
+            }
+        }
+    }
+
+    private func row(_ t: TransactionDto, _ line: SummaryLineDto) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: line.items > 1 ? "receipt" : "cart")
+                .foregroundStyle(Color.teal).frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(t.title)
+                Text("Paid by \(d.name(t.payerId)) · \(DateDays.date(t.dateDays).formatted(date: .abbreviated, time: .omitted))")
+                    .font(.caption).foregroundStyle(.secondary)
+                if line.items > 1 {
+                    Group {
+                        if line.itemsIn >= line.items {
+                            Text("You're in every item")
+                        } else {
+                            Text("You're in some items (\(Int(line.itemsIn)) of \(Int(line.items)))")
+                        }
+                    }
+                    .font(.caption).foregroundStyle(Color.teal)
+                }
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(d.format(line.myShareMinor)).font(.body.monospacedDigit())
+                Text("Your part").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+/// A number card at the top of "My summary".
+private struct StatTile: View {
+    let label: LocalizedStringKey
+    let value: String
+    let note: Text
+    var prominent = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label).font(.subheadline.weight(.medium))
+            Text(value).font(.title2.weight(.semibold).monospacedDigit())
+                .lineLimit(1).minimumScaleFactor(0.6)
+            note.font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(16)
+        .background(prominent ? Color.teal.opacity(0.18) : Color(.secondarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
+    }
+}
+
 // MARK: - People
+
+/// Everyone in the group, opened from the menu's "Participants".
+private struct ParticipantsView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let d = model.detail { PeopleSection(d: d) }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Participants")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+        }
+    }
+}
 
 private struct PeopleSection: View {
     let d: GroupDetail

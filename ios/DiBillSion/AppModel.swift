@@ -10,6 +10,8 @@ struct GroupDetail: Sendable {
     var exponent: Int
     /// Synced through the server (ADR 0007).
     var shared: Bool
+    /// What I spent in the group ("My summary"); nil until I pick who I am.
+    var summary: MySummaryDto?
 
     func name(_ memberId: String) -> String {
         members.first { $0.id == memberId }?.displayName ?? "?"
@@ -442,7 +444,8 @@ final class AppModel {
                 transactions: try core.transactions(groupId: groupId),
                 balances: try core.balances(groupId: groupId),
                 exponent: Int(try currencyExponent(code: group.baseCurrency)),
-                shared: try core.isShared(groupId: groupId))
+                shared: try core.isShared(groupId: groupId),
+                summary: try group.meId.map { try core.mySummary(groupId: groupId, memberId: $0) })
         }
         if let loaded { detail = loaded }
     }

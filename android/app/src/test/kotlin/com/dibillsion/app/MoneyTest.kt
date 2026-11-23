@@ -24,6 +24,15 @@ class MoneyTest {
     }
 
     @Test
+    fun percentHasOneDecimalRoundedHalfUp() {
+        assertEquals("16.7", Money.percent(1667, Locale.US))
+        assertEquals("16,7", Money.percent(1667, Locale.GERMANY))
+        assertEquals("12.5", Money.percent(1245, Locale.US))
+        assertEquals("100.0", Money.percent(10_000, Locale.US))
+        assertEquals("0.0", Money.percent(0, Locale.US))
+    }
+
+    @Test
     fun formatsWithLocaleSeparators() {
         assertEquals("1,234.50 EUR", Money.format(123450, 2, "EUR", Locale.US))
         assertEquals("1.234,50 EUR", Money.format(123450, 2, "EUR", Locale.GERMANY))

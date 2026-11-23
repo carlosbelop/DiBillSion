@@ -912,6 +912,31 @@ impl Store {
     /// SQLite errors, or domain errors on corrupt data.
     pub fn group_balances(&self, group: GroupId) -> Result<GroupBalances> {
         let base = self.group(group)?.base_currency;
+        let (expenses, transfers) = self.in_base_currency(group)?;
+        let expenses: Vec<Expense> = expenses.into_iter().map(|(_, e)| e).collect();
+        let mut balances = balances(&expenses, &transfers)?;
+        for m in self.members(group)? {
+            balances.entry(m.id).or_default();
+        }
+        let suggestions = settle_up(&balances);
+        Ok(GroupBalances {
+            currency: base,
+            balances,
+            suggestions,
+        })
+    }
+
+    /// Expenses and incomes (newest first, with their ids) in the group's base currency,
+    /// as [`Store::group_balances`] counts them. Transfers are left out.
+    ///
+    /// # Errors
+    /// SQLite errors, or domain errors on corrupt data.
+    pub fn base_expenses(&self, group: GroupId) -> Result<BaseExpenses> {
+        Ok(self.in_base_currency(group)?.0)
+    }
+
+    fn in_base_currency(&self, group: GroupId) -> Result<(BaseExpenses, Vec<Transfer>)> {
+        let base = self.group(group)?.base_currency;
         let mut expenses = Vec::new();
         let mut transfers = Vec::new();
         for t in self.transactions(group)? {
@@ -943,24 +968,21 @@ impl Store {
                     shares: rescale_amounts(&item, total),
                 })
                 .collect();
-            expenses.push(Expense {
-                kind,
-                payer: t.payer,
-                items,
-            });
+            expenses.push((
+                t.id,
+                Expense {
+                    kind,
+                    payer: t.payer,
+                    items,
+                },
+            ));
         }
-        let mut balances = balances(&expenses, &transfers)?;
-        for m in self.members(group)? {
-            balances.entry(m.id).or_default();
-        }
-        let suggestions = settle_up(&balances);
-        Ok(GroupBalances {
-            currency: base,
-            balances,
-            suggestions,
-        })
+        Ok((expenses, transfers))
     }
 }
+
+/// Expenses and incomes with their ids, converted to the group's base currency.
+pub type BaseExpenses = Vec<(TransactionId, Expense)>;
 
 /// A transaction's rows, deleted or not.
 pub(crate) fn load_transaction(

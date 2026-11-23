@@ -28,6 +28,15 @@ final class MoneyTests: XCTestCase {
         XCTAssertEqual(Money.format(1_234_567, exponent: 2, code: "EUR", locale: Locale(identifier: "es_ES")), "12.345,67 EUR")
     }
 
+    func testPercentHasOneDecimalRoundedHalfUp() {
+        let en = Locale(identifier: "en_US")
+        XCTAssertEqual(Money.percent(1667, locale: en), "16.7%")
+        XCTAssertEqual(Money.percent(1245, locale: en), "12.5%")
+        XCTAssertEqual(Money.percent(10_000, locale: en), "100.0%")
+        XCTAssertEqual(Money.percent(0, locale: en), "0.0%")
+        XCTAssertTrue(Money.percent(1667, locale: Locale(identifier: "es_ES")).hasPrefix("16,7"))
+    }
+
     func testNormalisesRates() {
         XCTAssertEqual(Money.parseRate("1,0850"), "1.085")
         XCTAssertEqual(Money.parseRate("0.5"), "0.5")

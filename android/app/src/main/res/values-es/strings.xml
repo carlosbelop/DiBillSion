@@ -12,7 +12,6 @@
     <string name="delete">Borrar</string>
     <string name="tab_expenses">Gastos</string>
     <string name="tab_balances">Saldos</string>
-    <string name="tab_people">Personas</string>
     <string name="add_expense">Añadir gasto</string>
     <string name="expenses_empty">Añade lo que alguien pagó y se repartirá en el grupo.</string>
     <string name="paid_by">Pagado por %1$s</string>
@@ -179,4 +178,22 @@
     <string name="split_all">Repartir todos los artículos…</string>
     <string name="split_all_title">Repartir todo el ticket</string>
     <string name="split_all_hint">Todos los artículos se reparten así. Después puedes cambiar cada uno por separado.</string>
+    <string name="tab_my_summary">Mi resumen</string>
+    <string name="participants">Participantes</string>
+    <string name="my_spent">Has gastado</string>
+    <string name="my_share_of_group">Tu parte del grupo</string>
+    <string name="of_group_total">de %1$s en total</string>
+    <string name="expenses_i_paid">Gastos pagados por mí</string>
+    <string name="expenses_im_in">Gastos en los que participo</string>
+    <string name="expenses_i_paid_empty">Aún no has pagado ningún gasto.</string>
+    <string name="expenses_im_in_empty">Aún no participas en ningún gasto.</string>
+    <string name="items_in_some">Participas en algunos elementos (%1$d de %2$d)</string>
+    <string name="items_in_all">Participas en todos los elementos</string>
+    <string name="your_part">Tu parte</string>
+    <string name="percent_value">%1$s %%</string>
+    <string name="summary_pick_me">Indica quién eres para ver cuánto has gastado y los gastos en los que participas.</string>
+    <plurals name="in_expenses_count">
+        <item quantity="one">en %1$d gasto</item>
+        <item quantity="other">en %1$d gastos</item>
+    </plurals>
 </resources>

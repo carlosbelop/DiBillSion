@@ -2,8 +2,9 @@
 
 > What **DiBillSion** does: features, flows, data model and calculation rules (milestone M1).
 >
-> Status: **v2.1** (v2 approved by the owner on 2026-10-25, closes M1; v2.1 adds the percentage
-> split from the owner's tester feedback of 2026-11-10). Items marked **(open)** are product
+> Status: **v2.2** (v2 approved by the owner on 2026-10-25, closes M1; v2.1 adds the percentage
+> split from the owner's tester feedback of 2026-11-10; v2.2 adds "My summary" and moves the
+> group's people into its menu, owner request of 2026-11-23). Items marked **(open)** are product
 > decisions still to make. Changes from now on go through a PR that bumps the version.
 
 ## 1. Features
@@ -30,6 +31,10 @@
   currency used in the group.
 - **Balances** per member, and **suggested reimbursements** that settle the group. Marking a
   suggestion as paid records a transfer.
+- **My summary.** For "who I am" in the group: what I've spent (my share of every expense)
+  and that as a percentage of the group's spending, then *Expenses I paid* and *Expenses I'm
+  in* (the two lists can overlap). A receipt shows as one row saying whether I'm in some or
+  every item; any row opens the expense like the expenses tab does.
 - **Categories.** A small built-in set (accommodation, groceries, restaurants, transport,
   entertainment, shopping, health, rent and bills, other) plus custom categories (name + emoji).
 - **Statistics.** Spending by category, for "me" or for the whole group, by month, year or all
@@ -79,6 +84,9 @@ shares and rounding each balance on its own would leave such cents behind.)
    history and balances. (Deliberately different from silently redistributing their share.)
 8. **Scan a receipt (M7).** Camera → progress → editable item list → assign members per item
    → save as one expense.
+9. **Group screen.** Three tabs: expenses, balances and my summary. The group's menu (⋯)
+   holds *Participants* (add, deactivate or remove people), inviting, "who I am", archive and
+   delete. Without "who I am" the summary tab asks for it.
 
 ## 3. Data model
 
@@ -140,6 +148,15 @@ language, locale or member names. Ties are broken by member id.
   exactly 100 %; the editor shows what's left and blocks saving until then.
   10.00 € split 33.33/33.33/33.34 % → parts 3333:3333:3334 → 3.33, 3.33, 3.34.
 - **Mixed splits:** fixed amounts first; the remainder (never negative) is split by parts.
+- **My summary.** In base currency. *Spent* = the sum of my exact shares (the same split the
+  balances use) over every expense; incomes and transfers are not spending. *Group spending* =
+  the sum of every expense's total. The percentage is spent / group spending in hundredths of a
+  percent, rounded half up, shown with one decimal. I'm *in* an item when my share of it is
+  non-zero (parts or amount); a receipt says "some items" or "every item".
+  Flat of A, B, C: B pays a 14.00 € receipt (9.00 for A, B, C; 5.00 for B only), A pays a
+  10.00 € dinner for B and C and a 6.00 € bill for everyone → A spent 3.00 + 2.00 = 5.00 €
+  of 30.00 € = 16.7 %; *paid* lists the dinner and the bill; *in* lists the receipt ("1 of 2
+  items") and the bill. Everyone's *spent* adds up to the group's spending.
 - **Display.** A transaction in a foreign currency shows both the original amount and the converted
   amount, in lists and in details. Amount fields accept only as many decimals as the currency has.
 

@@ -37,6 +37,14 @@ class CoreSmokeTest {
                 ),
             )
             assertTrue(core.balances(g).balances.all { it.amountMinor == 0L })
+
+            // My summary: Bea's half of the dinner, which Ana paid; the transfer isn't spending.
+            val mine = core.mySummary(g, b)
+            assertEquals(500L to 1001L, mine.spentMinor to mine.groupSpentMinor)
+            assertEquals(4995u, mine.shareBasisPoints)
+            assertTrue(mine.paid.isEmpty())
+            assertEquals(1u to 1u, mine.involved.single().itemsIn to mine.involved.single().items)
+            assertEquals(1, core.mySummary(g, a).paid.size)
         }
     }
 

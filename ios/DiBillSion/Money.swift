@@ -33,6 +33,19 @@ enum Money {
         return "\(number) \(code)"
     }
 
+    /// Hundredths of a percent (from the core) with one decimal, rounded half up, in the
+    /// locale's style: 1667 -> "16.7%" / "16,7 %". Decimal maths only, never `Double`.
+    static func percent(_ basisPoints: UInt32, locale: Locale = .current) -> String {
+        let tenths = (UInt64(basisPoints) + 5) / 10
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .percent
+        formatter.minimumFractionDigits = 1
+        formatter.maximumFractionDigits = 1
+        let value = Decimal(sign: .plus, exponent: -3, significand: Decimal(tenths))
+        return formatter.string(from: value as NSDecimalNumber) ?? "\(tenths / 10).\(tenths % 10)%"
+    }
+
     /// Minor units as plain editable text with a dot: 250 -> "2.50", for pre-filled fields.
     static func plain(_ minor: Int64, exponent: Int) -> String {
         let sign = minor < 0 ? "-" : ""

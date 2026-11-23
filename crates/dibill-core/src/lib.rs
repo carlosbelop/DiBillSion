@@ -12,8 +12,8 @@ use std::collections::BTreeMap;
 use std::sync::{Mutex, MutexGuard};
 
 use dibill_domain::{
-    Currency, CurrencyError, FxError, FxRate, ItemShare, MemberError, MemberId, MemberStatus,
-    Portion, convert, split_item,
+    Currency, CurrencyError, ExpenseKind, FxError, FxRate, ItemShare, MemberError, MemberId,
+    MemberStatus, Portion, basis_points, convert, member_share, split_item,
 };
 use dibill_store::{
     GroupId, GroupKind, Item, Store, StoreError, Transaction, TransactionId, TransactionKind,
@@ -218,6 +218,35 @@ pub struct BalancesDto {
     pub currency: String,
     pub balances: Vec<MemberBalanceDto>,
     pub suggestions: Vec<SuggestionDto>,
+}
+
+/// One expense in "My summary", in the group's base currency.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct SummaryLineDto {
+    pub transaction_id: String,
+    /// What this expense costs the member (their share of the items they are in).
+    pub my_share_minor: i64,
+    /// Items the member takes part in, out of `items`. A receipt shows
+    /// "some items" when `items_in < items`, "every item" otherwise.
+    pub items_in: u32,
+    pub items: u32,
+}
+
+/// The "My summary" tab: one member's spending in a group, in its base currency.
+/// Incomes and transfers are not spending, so they are left out.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct MySummaryDto {
+    pub currency: String,
+    /// The member's share of every expense.
+    pub spent_minor: i64,
+    /// What the whole group spent (the sum of every expense).
+    pub group_spent_minor: i64,
+    /// `spent_minor` out of `group_spent_minor`, in hundredths of a percent, rounded half up.
+    pub share_basis_points: u32,
+    /// Expenses the member paid, newest first.
+    pub paid: Vec<SummaryLineDto>,
+    /// Expenses the member takes part in (paid by anyone), newest first.
+    pub involved: Vec<SummaryLineDto>,
 }
 
 /// The app's single entry point. Thread-safe; calls are short and blocking,
@@ -464,6 +493,57 @@ impl Core {
                 })
             })
             .collect()
+    }
+
+    /// `member_id`'s spending in the group (the "My summary" tab, SPEC §1.1 and §4).
+    ///
+    /// # Errors
+    /// [`CoreError::NotFound`] for an unknown group; [`CoreError::InvalidInput`] for a bad id.
+    pub fn my_summary(
+        &self,
+        group_id: String,
+        member_id: String,
+    ) -> Result<MySummaryDto, CoreError> {
+        let store = self.store();
+        let group = GroupId(uuid(&group_id)?);
+        let me = member(&member_id)?;
+        let currency = store.group(group)?.base_currency.code().to_owned();
+        let split = |e: dibill_domain::SplitError| CoreError::InvalidSplit {
+            reason: e.to_string(),
+        };
+        let mut summary = MySummaryDto {
+            currency,
+            spent_minor: 0,
+            group_spent_minor: 0,
+            share_basis_points: 0,
+            paid: Vec::new(),
+            involved: Vec::new(),
+        };
+        for (id, e) in store.base_expenses(group)? {
+            if e.kind != ExpenseKind::Expense {
+                continue;
+            }
+            let share = member_share(&e, me).map_err(split)?;
+            let total = e
+                .total()
+                .ok_or_else(|| invalid("expense total overflows"))?;
+            summary.group_spent_minor += total;
+            summary.spent_minor += share.amount;
+            let line = SummaryLineDto {
+                transaction_id: id.0.to_string(),
+                my_share_minor: share.amount,
+                items_in: u32::try_from(share.items_in).unwrap_or(u32::MAX),
+                items: u32::try_from(share.items).unwrap_or(u32::MAX),
+            };
+            if e.payer == me {
+                summary.paid.push(line.clone());
+            }
+            if share.is_in() {
+                summary.involved.push(line);
+            }
+        }
+        summary.share_basis_points = basis_points(summary.spent_minor, summary.group_spent_minor);
+        Ok(summary)
     }
 
     /// # Errors
@@ -934,6 +1014,108 @@ mod tests {
         assert!(matches!(
             core.save_transaction(base),
             Err(CoreError::MemberInactive)
+        ));
+    }
+
+    #[test]
+    fn my_summary_counts_my_shares_and_lists_my_expenses() {
+        let core = Core::in_memory().unwrap();
+        let g = core
+            .create_group("Flat".into(), None, GroupKindDto::Home, "EUR".into())
+            .unwrap();
+        let a = core.add_member(g.clone(), "Ana".into()).unwrap();
+        let b = core.add_member(g.clone(), "Bea".into()).unwrap();
+        let c = core.add_member(g.clone(), "Carla".into()).unwrap();
+        let tx = |title: &str, kind, payer: &String, day, items: Vec<ItemDto>| TransactionDto {
+            id: None,
+            group_id: g.clone(),
+            kind,
+            title: title.into(),
+            payer_id: payer.clone(),
+            currency: "EUR".into(),
+            fx_rate: None,
+            date_days: day,
+            items,
+            base_total_minor: None,
+            receipt_image_id: None,
+        };
+        let item = |total, who: &[&String]| ItemDto {
+            label: None,
+            total_minor: total,
+            shares: equal(who),
+        };
+        // Bea's receipt: Ana is in one of its two items.
+        let receipt = core
+            .save_transaction(tx(
+                "Market",
+                TransactionKindDto::Expense,
+                &b,
+                20_002,
+                vec![item(900, &[&a, &b, &c]), item(500, &[&b])],
+            ))
+            .unwrap();
+        // Ana pays a dinner she isn't part of.
+        let dinner = core
+            .save_transaction(tx(
+                "Dinner",
+                TransactionKindDto::Expense,
+                &a,
+                20_001,
+                vec![item(1000, &[&b, &c])],
+            ))
+            .unwrap();
+        // Ana pays the rent and is in it.
+        let rent = core
+            .save_transaction(tx(
+                "Rent",
+                TransactionKindDto::Expense,
+                &a,
+                20_000,
+                vec![item(600, &[&a, &b, &c])],
+            ))
+            .unwrap();
+        // Incomes and transfers are not spending.
+        core.save_transaction(tx(
+            "Refund",
+            TransactionKindDto::Income,
+            &a,
+            20_003,
+            vec![item(300, &[&a])],
+        ))
+        .unwrap();
+
+        let mine = core.my_summary(g.clone(), a.clone()).unwrap();
+        assert_eq!(mine.currency, "EUR");
+        assert_eq!(mine.spent_minor, 300 + 200);
+        assert_eq!(mine.group_spent_minor, 1400 + 1000 + 600);
+        assert_eq!(mine.share_basis_points, 1667);
+        let ids = |l: &[SummaryLineDto]| {
+            l.iter()
+                .map(|x| x.transaction_id.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(ids(&mine.paid), [dinner.clone(), rent.clone()]);
+        assert_eq!(ids(&mine.involved), [receipt.clone(), rent.clone()]);
+        let market = &mine.involved[0];
+        assert_eq!(
+            (market.my_share_minor, market.items_in, market.items),
+            (300, 1, 2)
+        );
+        assert_eq!(mine.paid[0].my_share_minor, 0);
+
+        // Everyone's spending adds up to the group's.
+        let total: i64 = [&a, &b, &c]
+            .iter()
+            .map(|m| {
+                core.my_summary(g.clone(), (*m).clone())
+                    .unwrap()
+                    .spent_minor
+            })
+            .sum();
+        assert_eq!(total, mine.group_spent_minor);
+        assert!(matches!(
+            core.my_summary(g, "nope".into()),
+            Err(CoreError::InvalidInput { .. })
         ));
     }
 }

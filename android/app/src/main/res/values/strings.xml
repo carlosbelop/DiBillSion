@@ -13,7 +13,6 @@
     <string name="delete">Delete</string>
     <string name="tab_expenses">Expenses</string>
     <string name="tab_balances">Balances</string>
-    <string name="tab_people">People</string>
     <string name="add_expense">Add expense</string>
     <string name="expenses_empty">Add what someone paid and it will be split among the group.</string>
     <string name="paid_by">Paid by %1$s</string>
@@ -180,4 +179,22 @@
     <string name="split_all">Split every item…</string>
     <string name="split_all_title">Split the whole receipt</string>
     <string name="split_all_hint">Every item takes this split. You can still change each item afterwards.</string>
+    <string name="tab_my_summary">My summary</string>
+    <string name="participants">Participants</string>
+    <string name="my_spent">You\'ve spent</string>
+    <string name="my_share_of_group">Your share of the group</string>
+    <string name="of_group_total">of %1$s in total</string>
+    <string name="expenses_i_paid">Expenses I paid</string>
+    <string name="expenses_im_in">Expenses I\'m in</string>
+    <string name="expenses_i_paid_empty">You haven\'t paid for anything yet.</string>
+    <string name="expenses_im_in_empty">You\'re not in any expense yet.</string>
+    <string name="items_in_some">You\'re in some items (%1$d of %2$d)</string>
+    <string name="items_in_all">You\'re in every item</string>
+    <string name="your_part">Your part</string>
+    <string name="percent_value">%1$s%%</string>
+    <string name="summary_pick_me">Tell us which person you are to see what you\'ve spent and the expenses you\'re in.</string>
+    <plurals name="in_expenses_count">
+        <item quantity="one">in %1$d expense</item>
+        <item quantity="other">in %1$d expenses</item>
+    </plurals>
 </resources>
