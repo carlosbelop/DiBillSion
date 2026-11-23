@@ -34,6 +34,16 @@ object Money {
         return nf.format(BigDecimal.valueOf(minor, exponent)) + " " + code
     }
 
+    /**
+     * Hundredths of a percent (from the core) with one decimal, rounded half up, with the
+     * locale's separator: 1667 -> "16.7" / "16,7". Integer maths only.
+     */
+    fun percent(basisPoints: Long, locale: Locale = Locale.getDefault()): String {
+        val tenths = (basisPoints + 5) / 10
+        val sep = java.text.DecimalFormatSymbols.getInstance(locale).decimalSeparator
+        return "${tenths / 10}$sep${tenths % 10}"
+    }
+
     /** Minor units as plain editable text with a dot: 250 -> "2.50", for pre-filled fields. */
     fun plain(minor: Long, exponent: Int): String = BigDecimal.valueOf(minor, exponent).toPlainString()
 

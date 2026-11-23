@@ -15,6 +15,7 @@ import com.dibillsion.core.GroupDto
 import com.dibillsion.core.GroupKindDto
 import com.dibillsion.core.ItemDto
 import com.dibillsion.core.MemberDto
+import com.dibillsion.core.MySummaryDto
 import com.dibillsion.core.ShareDto
 import com.dibillsion.core.SyncSummary
 import com.dibillsion.core.TransactionDto
@@ -43,6 +44,8 @@ data class GroupDetail(
     val exponent: Int,
     /** Synced through the server (ADR 0007). */
     val shared: Boolean = false,
+    /** What I spent in the group ("My summary"); null until I pick who I am. */
+    val summary: MySummaryDto? = null,
 ) {
     fun name(memberId: String): String = members.firstOrNull { it.id == memberId }?.displayName ?: "?"
 
@@ -464,6 +467,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             balances = core.balances(groupId),
             exponent = currencyExponent(group.baseCurrency).toInt(),
             shared = core.isShared(groupId),
+            summary = group.meId?.let { core.mySummary(groupId, it) },
         )
         _state.update { it.copy(detail = detail) }
     }
